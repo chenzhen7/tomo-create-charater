@@ -1,6 +1,6 @@
 ---
 name: make-character
-description: tomo 仓库自用的**完整**角色制作流水线：采集角色设定 → 生成台词表（dialogue.md）→ Fish Audio TTS 合成 → 身体段收编 → 打包校验 → 上传市场（含 roster 台账、body.js / upload.js）。当在本仓库开发中要新增或维护 characters/ 下的角色、重新打包、或把角色包上传到市场时使用。面向终端用户的简易分发版是 make-character-user。
+description: tomo 仓库自用的**完整**角色制作流水线：采集角色设定 → 生成台词表（dialogue.md）→ Fish Audio TTS 合成 → 身体段收编 → 打包校验 → 上传市场（含 roster 台账、body.js / upload.js）。当在本仓库开发中要新增或维护 characters/ 下的角色、重新打包、或把角色包上传到市场时使用。面向终端用户的简易分发版在 tomo 仓库的同名 skill（make-character）。
 ---
 
 # /make-character
