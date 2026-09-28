@@ -1,0 +1,26 @@
+{
+  "name": "三角初华",
+  "atlas": {
+    "cellHeight": 208,
+    "height": 2288,
+    "rows": 11,
+    "cellWidth": 192,
+    "width": 1536,
+    "columns": 8
+  },
+  "displayName": "三角初华",
+  "rows": [
+    "idle",
+    "running-right",
+    "running-left",
+    "waving",
+    "jumping",
+    "failed",
+    "waiting",
+    "running",
+    "review",
+    "look-row-9",
+    "look-row-10"
+  ],
+  "spriteVersionNumber": 2
+}

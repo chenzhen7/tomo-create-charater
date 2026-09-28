@@ -1,0 +1,28 @@
+{
+  "name": "高松灯",
+  "displayName": "高松灯",
+  "description": "A compact pixel-art Codex pet based on 高松灯.",
+  "spriteVersionNumber": 2,
+  "spritesheetPath": "spritesheet.webp",
+  "atlas": {
+    "columns": 8,
+    "rows": 11,
+    "cellWidth": 192,
+    "cellHeight": 208,
+    "width": 1536,
+    "height": 2288
+  },
+  "rows": [
+    "idle",
+    "running-right",
+    "running-left",
+    "waving",
+    "jumping",
+    "failed",
+    "waiting",
+    "running",
+    "review",
+    "look-row-9",
+    "look-row-10"
+  ]
+}

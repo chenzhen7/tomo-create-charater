@@ -1,0 +1,11 @@
+{
+  "petId": "cartesia",
+  "displayName": "卡提西亚",
+  "description": "A compact pixel-art Codex pet based on 卡提西亚.",
+  "spriteVersionNumber": 2,
+  "spritesheet": "final/spritesheet-extended.webp",
+  "atlas": {"columns": 8, "rows": 11, "cellWidth": 192, "cellHeight": 208, "width": 1536, "height": 2288},
+  "chromaKey": "#00FF00",
+  "validation": "final/validation-extended.json",
+  "qa": {"review": "qa/review.json", "directionSemantics": "qa/direction-semantics.json", "directionBlindValidation": "qa/direction-blind-validation.json", "lookContinuity": "qa/look-continuity.json", "chromaDespill": "qa/chroma-despill-extended.json"}
+}

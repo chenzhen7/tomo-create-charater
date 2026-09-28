@@ -1,0 +1,24 @@
+{
+  "petId": "ijichi-nina",
+  "displayName": "井芹仁菜",
+  "description": "A compact pixel-art Codex pet based on 井芹仁菜.",
+  "spriteVersionNumber": 2,
+  "spritesheet": "final/spritesheet-extended.webp",
+  "atlas": {
+    "columns": 8,
+    "rows": 11,
+    "cellWidth": 192,
+    "cellHeight": 208,
+    "width": 1536,
+    "height": 2288
+  },
+  "chromaKey": "#00FF00",
+  "validation": "final/validation-extended.json",
+  "qa": {
+    "framesInspection": "qa/frames-inspection.json",
+    "directionContinuity": "qa/direction-continuity.json",
+    "chromaDespill": "qa/spritesheet-v2-despill-report.json",
+    "lookDirections": "qa/look-directions.png",
+    "contactSheet": "qa/contact-sheet-extended.png"
+  }
+}

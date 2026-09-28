@@ -1,0 +1,26 @@
+{
+  "name": "曹操",
+  "rows": [
+    "idle",
+    "running-right",
+    "running-left",
+    "waving",
+    "jumping",
+    "failed",
+    "waiting",
+    "running",
+    "review",
+    "look-row-9",
+    "look-row-10"
+  ],
+  "displayName": "曹操",
+  "spriteVersionNumber": 2,
+  "atlas": {
+    "rows": 11,
+    "width": 1536,
+    "columns": 8,
+    "cellWidth": 192,
+    "height": 2288,
+    "cellHeight": 208
+  }
+}

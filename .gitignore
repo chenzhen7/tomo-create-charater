@@ -1,0 +1,19 @@
+# 生成草稿：hatch-pet 的整棵 output/ 树都是 scratch（见 .claude/skills/hatch-pet/SKILL.md）
+output/
+
+# 角色制作产物里能凭已入库的东西重新造出来的部分：
+#   audio/ 由 tts.js 幂等重跑 · out/ 由 pack.js 重打
+# 入库的是造不出来的那些：dialogue.md（台词原稿）、tachie*.png（立绘参考）、
+# pet.json + spritesheet.*（身体段，AI 生成不可复现）
+characters/*/audio/
+characters/*/out/
+
+# Python
+__pycache__/
+*.pyc
+
+# 临时实验目录
+tmp/
+
+node_modules
+.DS_Store

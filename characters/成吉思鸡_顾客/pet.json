@@ -1,0 +1,26 @@
+{
+  "spriteVersionNumber": 2,
+  "atlas": {
+    "height": 2288,
+    "rows": 11,
+    "cellHeight": 208,
+    "cellWidth": 192,
+    "width": 1536,
+    "columns": 8
+  },
+  "rows": [
+    "idle",
+    "running-right",
+    "running-left",
+    "waving",
+    "jumping",
+    "failed",
+    "waiting",
+    "running",
+    "review",
+    "look-row-9",
+    "look-row-10"
+  ],
+  "displayName": "成吉思鸡_顾客",
+  "name": "成吉思鸡_顾客"
+}

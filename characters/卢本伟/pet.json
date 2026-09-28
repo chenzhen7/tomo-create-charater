@@ -1,0 +1,26 @@
+{
+  "rows": [
+    "idle",
+    "running-right",
+    "running-left",
+    "waving",
+    "jumping",
+    "failed",
+    "waiting",
+    "running",
+    "review",
+    "look-row-9",
+    "look-row-10"
+  ],
+  "displayName": "卢本伟",
+  "spriteVersionNumber": 2,
+  "atlas": {
+    "cellHeight": 208,
+    "columns": 8,
+    "rows": 11,
+    "cellWidth": 192,
+    "width": 1536,
+    "height": 2288
+  },
+  "name": "卢本伟"
+}
