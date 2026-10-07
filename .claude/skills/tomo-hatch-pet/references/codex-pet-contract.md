@@ -12,11 +12,11 @@
 
 ## Local Custom Pet Package
 
-Upstream (Codex) places files under `${CODEX_HOME:-$HOME/.codex}/pets/<pet-name>/`. **In this repo the landing site is the tomo character folder instead** — `characters/<角色名>/`, same two files at the root. The shape below is what both expect:
+Upstream (Codex) places files under `${CODEX_HOME:-$HOME/.codex}/pets/<pet-name>/`. The tomo flow lands the same two files in the character folder — `characters/<角色名>/` under the current working directory, which is what `make-character` packages:
 
 ```text
 ${CODEX_HOME:-$HOME/.codex}/pets/<pet-name>/     # upstream Codex
-characters/<角色名>/                              # this repo
+characters/<角色名>/                              # tomo
 ├── pet.json
 └── spritesheet.webp
 ```

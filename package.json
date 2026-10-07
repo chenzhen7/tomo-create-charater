@@ -2,7 +2,7 @@
   "name": "tomo-create-charater",
   "private": true,
   "type": "module",
-  "description": "tomo 的角色与宠物制作仓库：characters/ 制作目录 + make-character / hatch-pet 两条流水线。产物由 tomo 市场分发。",
+  "description": "tomo 的角色与宠物制作仓库：characters/ 制作目录 + make-character / tomo-hatch-pet 两条流水线。产物由 tomo 市场分发。",
   "scripts": {
     "sync-contracts": "node scripts/sync-tomo-contracts.mjs"
   },

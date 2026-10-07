@@ -66,7 +66,7 @@ STATE_REQUIREMENTS = {
         "Do not draw red X marks, floating symbols, detached stars, separated smoke clouds, falling tear drops, dust, or other loose effects.",
     ],
     "waiting": [
-        "Show that Codex needs approval, help, or user input through an expectant asking pose.",
+        "Show that the agent needs approval, help, or user input through an expectant asking pose.",
         "Keep the motion patient and readable, without turning it into ordinary idle or review.",
     ],
     "running": [
@@ -262,9 +262,17 @@ def infer_pet_notes(args: argparse.Namespace, reference_paths: list[Path]) -> st
     return "a compact original Codex pet"
 
 
-def default_output_dir(pet_id: str) -> Path:
+def folder_safe(value: str) -> str:
+    """角色名要当目录名用，先消毒（「Re:从零开始…」这类名字带冒号，Windows 上直接建不了目录）。"""
+    cleaned = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", value).strip(" .")
+    return cleaned or "character"
+
+
+def default_output_dir(pet_id: str, display_name: str) -> Path:
+    """默认落在 characters/<角色名>/hatch/ 下——与 make-character 的角色目录同居，
+    pack.py 按白名单精确打包，hatch/ 永远进不了包；验收完随角色目录一起删。"""
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    return Path.cwd() / "output" / "hatch-pet" / f"{pet_id}-{timestamp}"
+    return Path.cwd() / "characters" / folder_safe(display_name) / "hatch" / f"{pet_id}-{timestamp}"
 
 
 def rel(path: Path, root: Path) -> str:
@@ -579,7 +587,7 @@ def make_jobs(
             "input_images": reference_inputs,
             "output_path": "decoded/base.png",
             "depends_on": [],
-            "generation_skill": "$imagegen",
+            "generation_skill": "generation-layer",
             "requires_grounded_generation": bool(reference_inputs),
             "allow_prompt_only_generation": not reference_inputs,
         }
@@ -604,7 +612,7 @@ def make_jobs(
                 "may_derive_from": "running-right",
                 "derivation": "framewise-horizontal-mirror-preserving-order",
                 "requires_explicit_approval": True,
-                "fallback_generation_skill": "$imagegen",
+                "fallback_generation_skill": "generation-layer",
             }
         elif state not in NON_DERIVABLE_STATES:
             derivation_policy["reason"] = "no deterministic derivation is configured for this state"
@@ -628,7 +636,7 @@ def make_jobs(
                 ],
                 "output_path": f"decoded/{state}.png",
                 "depends_on": depends_on,
-                "generation_skill": "$imagegen",
+                "generation_skill": "generation-layer",
                 "requires_grounded_generation": True,
                 "allow_prompt_only_generation": False,
                 "identity_reference_paths": identity_reference_paths,
@@ -721,7 +729,7 @@ def main() -> None:
     run_dir = (
         Path(args.output_dir).expanduser().resolve()
         if args.output_dir
-        else default_output_dir(args.pet_id).resolve()
+        else default_output_dir(args.pet_id, args.display_name).resolve()
     )
     if run_dir.exists() and any(run_dir.iterdir()) and not args.force:
         raise SystemExit(f"{run_dir} already exists and is not empty; pass --force to reuse it")
@@ -789,7 +797,7 @@ def main() -> None:
         "brand_brief": args.brand_brief,
         "brand_sources": args.brand_source,
         "pet_safe_style": PET_SAFE_STYLE,
-        "primary_generation_skill": "$imagegen",
+        "primary_generation_skill": "generation-layer",
     }
     if brand_discovery_path:
         request["brand_discovery_path"] = brand_discovery_path
@@ -811,7 +819,7 @@ def main() -> None:
         "schema_version": 1,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "run_dir": str(run_dir),
-        "primary_generation_skill": "$imagegen",
+        "primary_generation_skill": "generation-layer",
         "jobs": make_jobs(run_dir, copied_refs),
     }
     (run_dir / "imagegen-jobs.json").write_text(json.dumps(jobs, indent=2) + "\n", encoding="utf-8")

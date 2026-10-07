@@ -35,7 +35,7 @@ output/                          # 生成草稿（不进 git）
 
 vendor/tomo-contracts/           # 从 tomo 同步来的契约快照（见「契约同步」）
 scripts/sync-tomo-contracts.mjs  # 快照的刷新脚本
-.claude/skills/                  # make-character（本仓库正本）· hatch-pet（tomo 是正本，这里是副本）
+.claude/skills/                  # make-character（本仓库正本）· tomo-hatch-pet（tomo 是正本，这里是副本）
 ```
 
 ---
@@ -52,17 +52,17 @@ scripts/sync-tomo-contracts.mjs  # 快照的刷新脚本
 | ② 台词 | 按抽象事件目录写台词表（每个可绑事件 2~3 条短句） | `characters/<角色名>/dialogue.md` |
 | ③ 合成 | Fish Audio TTS（幂等，已存在的 mp3 跳过） | `node .claude/skills/make-character/tts.js characters/<角色名>` |
 | ④ 试听 | 人工确认音色贴不贴脸 | — |
-| ⑤ 身体 | 收编 hatch-pet 产出的 `pet.json` + `spritesheet.webp` | `node .claude/skills/make-character/body.js characters/<角色名> --from <来源目录\|zip>` |
+| ⑤ 身体 | 收编 tomo-hatch-pet 产出的 `pet.json` + `spritesheet.webp` | `node .claude/skills/make-character/body.js characters/<角色名> --from <来源目录\|zip>` |
 | ⑥ 打包 | 全量校验 + 出 `.zip` | `node .claude/skills/make-character/pack.js characters/<角色名>` |
 | ⑦ 上传 | 传角色库市场（默认测试环境，生产需 `--yes`） | `node .claude/skills/make-character/upload.js characters/<角色名> [--env prod --yes]` |
 
 每个阶段完成后把 `characters/roster.md` 该行的「状态」列推进一格：`待调研 → 台词 → 合成 → 试听 → 身体 → 打包 → 已上传 → 已上线`。
 
-### 身体段：`/hatch-pet`
+### 身体段：`/tomo-hatch-pet`
 
-身体段（九态图集）由 hatch-pet 生成，见 [.claude/skills/hatch-pet/SKILL.md](.claude/skills/hatch-pet/SKILL.md)。它跑在 `output/hatch-pet/<pet>/` 这棵 run 目录里，最终把 `pet.json` + `spritesheet.webp` 落到 `characters/<角色名>/`，交给 `body.js` 收编。图集规格与九态语义见 [docs/contracts/PetDex宠物包格式.md](docs/contracts/PetDex宠物包格式.md)。
+身体段（九态图集）由 tomo-hatch-pet 生成，见 [.claude/skills/tomo-hatch-pet/SKILL.md](.claude/skills/tomo-hatch-pet/SKILL.md)。它跑在 `output/hatch-pet/<pet>/` 这棵 run 目录里，最终把 `pet.json` + `spritesheet.webp` 落到 `characters/<角色名>/`，交给 `body.js` 收编。图集规格与九态语义见 [docs/contracts/PetDex宠物包格式.md](docs/contracts/PetDex宠物包格式.md)。
 
-> **hatch-pet 的正本在 tomo 仓库**（`.claude/skills/hatch-pet/`），本仓库那份是副本。改动 skill 请在 tomo 里改，再复制过来。
+> **tomo-hatch-pet 的正本在 tomo 仓库**（`.claude/skills/tomo-hatch-pet/`），本仓库那份是副本。改动 skill 请在 tomo 里改，再复制过来。
 
 ---
 
@@ -136,7 +136,7 @@ node scripts/sync-tomo-contracts.mjs --from <路径>    # 或指定 tomo checkou
 
 - [characters/roster.md](characters/roster.md) — 角色清单与制作状态追踪表
 - [.claude/skills/make-character/SKILL.md](.claude/skills/make-character/SKILL.md) — 制作流水线完整说明（/make-character）
-- [.claude/skills/hatch-pet/SKILL.md](.claude/skills/hatch-pet/SKILL.md) — 九态身体段生成（/hatch-pet）
+- [.claude/skills/tomo-hatch-pet/SKILL.md](.claude/skills/tomo-hatch-pet/SKILL.md) — 九态身体段生成（/tomo-hatch-pet）
 - [docs/contracts/角色库包格式.md](docs/contracts/角色库包格式.md) — 角色包 `.zip` 格式：包结构 / manifest / 完整性门槛
 - [docs/contracts/PetDex宠物包格式.md](docs/contracts/PetDex宠物包格式.md) — 视觉资产标准：包结构 / spritesheet 规格 / 9 态官方语义
 - [docs/contracts/事件目录契约.md](docs/contracts/事件目录契约.md) — 抽象事件目录（16）+ 各 Agent 原生映射 + 两通道默认层

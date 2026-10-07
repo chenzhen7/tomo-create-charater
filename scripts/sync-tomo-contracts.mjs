@@ -12,7 +12,7 @@
  *   src/shared/tomo-res-url.ts → vendor/tomo-contracts/tomo-res-url.ts types.ts 的 PetdexSource 来源
  *   src/shared/audio-ext.ts    → vendor/tomo-contracts/audio-ext.ts   音频扩展名与展示名
  *   scripts/load-env.mjs       → vendor/tomo-contracts/load-env.mjs   .env 读取
- *   docs/contracts/*.md        → docs/contracts/*.md                  make-character / hatch-pet 引用的契约正文
+ *   docs/contracts/*.md        → docs/contracts/*.md                  make-character / tomo-hatch-pet 引用的契约正文
  */
 import fs from "node:fs"
 import path from "node:path"
@@ -22,7 +22,7 @@ import { fileURLToPath } from "node:url"
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 const OUT_DIR = path.join(REPO_ROOT, "vendor", "tomo-contracts")
 
-// make-character / hatch-pet 正文引用到的契约文档，按同名路径落盘
+// make-character / tomo-hatch-pet 正文引用到的契约文档，按同名路径落盘
 const DOCS = [
   "docs/contracts/角色库包格式.md",
   "docs/contracts/PetDex宠物包格式.md",

@@ -133,7 +133,7 @@ node .claude/skills/make-character/tts.js characters/<角色名>
 
 #### ⑤a 取得（三选一）
 
-- **以该角色为原型定制**（首选——桌宠得是它本人）：在 Codex 里跑 `hatch-pet` skill，产物落在 `${CODEX_HOME}/pets/<pet-id>/`：`pet.json` + `spritesheet.webp`（8×11，多出的两行朝向 tomo 不读，照收）
+- **以该角色为原型定制**（首选——桌宠得是它本人）：跑 `tomo-hatch-pet` skill，产物直接落到 `characters/<角色名>/`：`pet.json` + `spritesheet.webp`
 - **从 PetDex 画廊挑一只**（代价最低，但拿到的是通用宠物而非角色本人）：`npx petdex install <slug>`，两文件在 `~/.petdex/pets/<slug>/`
 - **自带图集**：手工美术，或别处下载的宠物包（zip 或已解开的目录都行）
 
