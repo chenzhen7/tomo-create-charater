@@ -194,7 +194,7 @@ State-specific guidance:
 - `waiting`: show that the agent needs approval, help, or user input through an expectant asking pose. Keep it distinct from ordinary idle and review.
 - `running`: show active task work, processing, thinking, scanning, typing, or focused effort. Do not show literal foot-running, jogging, sprinting, treadmill motion, raised knees, long steps, pumping arms, directional travel, speed lines, dust clouds, floor shadows, motion trails, or detached motion effects.
 - `review`: show focus through lean, blink, eyes, head tilt, or paw/hand position. Do not add magnifying glasses, papers, code, UI, punctuation, symbols, or other new props unless they already exist in the base pet identity.
-- `running-right` and `running-left`: show directional drag movement through body, limb, and prop movement only. `running-right` must face and travel right; `running-left` must face and travel left. Their cadence must visibly alternate across the loop rather than repeating one nearly static stride. Do not draw speed lines, dust clouds, floor shadows, motion trails, or detached motion effects.
+- `running-right` and `running-left`: show directional drag movement through body, limb, and prop movement only. `running-right` must face and travel right; `running-left` must face and travel left. Their cadence must visibly alternate across the loop rather than repeating one nearly static stride. Every figure keeps identical scale — same head size, body height, and silhouette envelope across all frames; stride, lean, and arm swing carry the motion, never a resized pet. Do not draw speed lines, dust clouds, floor shadows, motion trails, or detached motion effects.
 
 ## Visible Progress Plan
 
@@ -523,7 +523,7 @@ Row worker responsibilities:
 - handle exactly one row job
 - read the row prompt and use all listed input images
 - use the generation layer only; do not draw, edit, tile, or synthesize sprites locally
-- perform a quick visual sanity check for frame count, identity, chroma background, spacing, clipping, and detached effects
+- perform a quick visual sanity check for frame count, identity, per-frame scale consistency, chroma background, spacing, clipping, and detached effects
 - enforce the row prompt's transparency and effects rules, including no detached effects, no wave marks for `waving`, no speed lines or dust for directional running rows, no literal foot-running for the non-directional `running` row, and only attached opaque sprite-like tears/smoke/stars when allowed by the state prompt
 - return only `selected_source=/absolute/path/to/selected-output.png` and `qa_note=<one sentence>`
 
@@ -569,7 +569,7 @@ Input images:
 
 Use the generation layer only. Read the row prompt and attach every listed input image. If it returns Bad Request, retry once with the retry prompt and the same input images.
 
-Before returning, visually check: exact frame count, same pet identity as canonical base, flat chroma background, complete separated unclipped poses, and no detached effects or guide marks. The prompt's transparency and effects rules are mandatory: no detached effects, no wave marks for `waving`, no speed lines or dust for directional running rows, no literal foot-running for the non-directional `running` row, and only attached opaque sprite-like tears/smoke/stars when allowed by the state prompt.
+Before returning, visually check: exact frame count, same pet identity as canonical base, flat chroma background, complete separated unclipped poses, every figure at one consistent size (no head or body growing or shrinking between frames), and no detached effects or guide marks. The prompt's transparency and effects rules are mandatory: no detached effects, no wave marks for `waving`, no speed lines or dust for directional running rows, no literal foot-running for the non-directional `running` row, and only attached opaque sprite-like tears/smoke/stars when allowed by the state prompt.
 
 Do not edit manifests, copy into decoded, mark jobs complete, mirror rows, run image-processing scripts, repair, package, or open unrelated files.
 Do not include Markdown image previews, base64, or extra attachments in the final response.
