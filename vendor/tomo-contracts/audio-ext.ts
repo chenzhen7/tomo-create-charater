@@ -1,5 +1,5 @@
 // 本文件由 scripts/sync-tomo-contracts.mjs 从 tomo 仓库同步生成。
-// 来源：tomo@a2a56ca src/shared/audio-ext.ts
+// 来源：tomo@bf49878 src/shared/audio-ext.ts
 // 刷新：node scripts/sync-tomo-contracts.mjs
 /**
  * 允许导入/绑定的音频扩展名白名单（唯一来源）。

@@ -1,5 +1,5 @@
 // 本文件由 scripts/sync-tomo-contracts.mjs 从 tomo 仓库同步生成。
-// 来源：tomo@a2a56ca src/shared/types.ts
+// 来源：tomo@bf49878 src/shared/types.ts
 // 刷新：node scripts/sync-tomo-contracts.mjs
 /**
  * 主进程与渲染进程共享的契约类型。
@@ -75,17 +75,43 @@ export interface InstalledPetView {
   sheetUrl: string | null
 }
 
+/**
+ * 某个 Agent 的角色制作工具（make-character + tomo-hatch-pet 一对 skill）安装状态。
+ * 判定靠**内容哈希对比**，磁盘文件是唯一事实——不写版本戳、不记同步状态（决策：总是自动覆盖）。
+ */
+export type MakerToolStatus =
+  /** 两个 skill 目录都不存在 */
+  | "not-installed"
+  /** 已安装且与安装包内置版本逐字节一致 */
+  | "current"
+  /** 已安装但内容不同：旧版 / 用户改过 / 只剩一个目录。下次启动自动覆盖，或点「更新」立即重装 */
+  | "differs"
+
+/** 单个 Agent 一行的制作工具视图 */
+export interface MakerToolAgentView {
+  agent: AgentId
+  /** 安装目标（适配器 configDir 派生）。仅作 UI 提示——渲染进程**不得**回传它定位，安装只传 agent */
+  skillDir: string
+  status: MakerToolStatus
+}
+
+/** 设置页「角色制作工具」卡片视图：内置版本 + 各 Agent 一行 */
+export interface MakerToolsView {
+  /** 应用版本（app.getVersion()）：随包分发的 skill 与 tomo 同生同灭，无独立版本号 */
+  bundledVersion: string
+  agents: MakerToolAgentView[]
+}
+
 /** 一条音频绑定（定位与展示解耦）。所属 Agent 由角色的 agent 决定，不在此冗余 */
-export interface AudioBinding {
-  /** 绑定记录 id（event_audio.id） */
+export interface AudioBinding {  /** 绑定记录 id（event_audio.id） */
   id: number
   characterId: number
   /** 抽象事件名（16 词表之一，见 src/shared/events.ts） */
   event: AbstractEvent
   /** 文件定位符：内嵌=角色目录内相对路径（audio/<uuid>.<ext>）；外链=绝对路径 */
   path: string
-  /** UI 展示名（导入=包内真实文件名，手动=源文件 basename），只读 */
-  name: string
+  /** 原台词（导入 v3 包=label、v2 包=旧 name；手动添加默认=源文件名去扩展名），可在绑定页编辑 */
+  label: string
   /** 源文件是否缺失（内嵌/外链统一 stat 检测；缺失时 UI 标红、播放报错） */
   missing: boolean
   /** 时长（秒）。主进程无法解码音频，由渲染进程探测后本地缓存，这里恒为 null */
@@ -187,6 +213,12 @@ export interface SettingsView {
   currentAgent: AgentId
   /** 桌面宠物总开关（全局）。托盘与设置页两个入口读写同一个键 */
   petVisible: boolean
+  /** 台词气泡开关（全局，默认开）：关掉后桌宠不再显示事件台词，声音不受影响 */
+  petBubble: boolean
+  /** 开机自启（全局，默认开）。开发态不写登录项，且设置页禁用该开关 */
+  autostart: boolean
+  /** 当前运行形态是否支持开机自启（打包态为 true；dev 为 false） */
+  autostartAvailable: boolean
 }
 
 /** 内部完整守卫参数（DB 里按 key 分散存储） */
@@ -233,8 +265,8 @@ export interface TomoApi {
   /** 添加音频到指定角色的指定事件（弹文件对话框；用户取消返回当前绑定列表） */
   addAudio: (characterId: number, event: AbstractEvent) => Promise<AudioBinding[]>
   removeAudio: (bindingId: number) => Promise<AudioBinding[]>
-  /** 改绑定展示名（纯元数据；空名/超长由后端拒绝，返回更新后的绑定列表） */
-  renameAudio: (bindingId: number, name: string) => Promise<AudioBinding[]>
+  /** 改绑定台词（纯元数据；空台词/超长由后端拒绝，返回更新后的绑定列表） */
+  updateAudioLabel: (bindingId: number, label: string) => Promise<AudioBinding[]>
   preview: (bindingId: number) => Promise<void>
   setGuard: (patch: Partial<GuardSettings>) => Promise<GuardSettings>
   /** 切换当前 Agent：此后宠物/语音只服务它下面的激活角色（不重写任何 hook） */
@@ -273,10 +305,25 @@ export interface TomoApi {
   /** 打开 PetDex 宠物画廊（系统浏览器；URL 主进程写死，见 src/shared/urls.ts） */
   openPetdexGallery: () => Promise<void>
   /**
+   * 各 Agent 的角色制作工具（make-character + tomo-hatch-pet 一对）安装状态。
+   * 每次调用重扫磁盘——用户可能在 tomo 之外手改/手删了 skill 目录。
+   */
+  listMakerTools: () => Promise<MakerToolsView>
+  /**
+   * 把内置的两个 skill 整目录覆盖安装到指定 Agent 的用户级 skill 目录。
+   * 两个 skill 必须同目录成对（make-character 引用「同目录的 tomo-hatch-pet」）。
+   * differs 状态的立即出口（不点也会在下次启动被自动覆盖）；失败抛错（调用方 toast），成功返回最新视图。
+   */
+  installMakerTools: (agent: AgentId) => Promise<MakerToolsView>
+  /**
    * 桌面宠物总开关（全局，落库）。关掉后宠物窗口消失，但语音照常——
    * 与「当前 Agent 没有激活角色 / 角色没有身体」是三道**独立**的门，任一不成立就没有宠物。
    */
   setPetVisible: (visible: boolean) => Promise<SettingsView>
+  /** 台词气泡开关（右键菜单与设置页共用同一个键） */
+  setPetBubble: (bubble: boolean) => Promise<SettingsView>
+  /** 开机自启开关（真正写系统登录项；dev 模式调用抛错） */
+  setAutostart: (enabled: boolean) => Promise<SettingsView>
   /**
    * 忘掉宠物上次的停靠位置，把它搬回默认的右下角。宠物被拖到屏幕外（换了显示器、
    * 拔了外接屏）时唯一的回头路——此时它仍在运行、仍在播动画，只是不在任何看得见的地方。

@@ -10,18 +10,17 @@
  *   ## session-start
  *   - file: session-start-1.mp3
  *     text: [happy] 呀，你来啦！
- *     name: 登场问候          ← 可选，展示名；缺省 = file 去扩展名
  *
  * 规则：
  * - frontmatter 为简单 key: value 对（不做 YAML 全语法）
  * - 事件节标题 `## <抽象事件名>`（16 词表之一，kebab-case，无空格；见 vendor/tomo-contracts/events.ts）
- * - 条目以 `- file: <文件名>` 开始，后续缩进行为 text:/name:
+ * - 条目以 `- file: <文件名>` 开始，后续缩进行为 text:
  * - 语音是否已生成不在文件里记状态——以 audio/<file> 是否存在为准（重生成 = 删文件重跑）
  */
 import fs from "node:fs"
 import path from "node:path"
 
-/** @typedef {{ file: string, text: string, name: string | null }} DialogueItem */
+/** @typedef {{ file: string, text: string }} DialogueItem */
 /** @typedef {{ event: string, items: DialogueItem[] }} DialogueSection */
 /** @typedef {{ meta: Record<string, string>, sections: DialogueSection[] }} Dialogue */
 
@@ -79,17 +78,16 @@ export function parseDialogue(filePath) {
       if (!current) {
         throw new Error(`dialogue.md 第 ${i + 1} 行：条目必须位于某个 ## 事件节内`)
       }
-      item = { file: fileMatch[1], text: "", name: null }
+      item = { file: fileMatch[1], text: "" }
       current.items.push(item)
       continue
     }
-    const field = /^\s+(text|name):\s*(.*)$/.exec(line)
+    const field = /^\s+text:\s*(.*)$/.exec(line)
     if (field) {
       if (!item) {
-        throw new Error(`dialogue.md 第 ${i + 1} 行：${field[1]} 必须跟在 - file: 之后`)
+        throw new Error(`dialogue.md 第 ${i + 1} 行：text 必须跟在 - file: 之后`)
       }
-      if (field[1] === "text") item.text = field[2].trim()
-      else item.name = field[2].trim() || null
+      item.text = field[1].trim()
       continue
     }
   }

@@ -84,7 +84,7 @@ characters/
 - **语言用①确认的台词语言**（日语原文 / 中文 / 其他），不要混入用户没选的语言
 - 贴合①的默认事件语义表（`session-start`=欢迎、`turn-complete`=完成待命、`turn-failure`=简短安抚+提醒检查、`session-end`=收尾休息提示…）
 - 口吻以①调研出的人设卡为锚点（口癖、自称、代表语录的风格），不是通用萌妹腔
-- 短句（朗读 ≤4 秒）；可带 Fish Audio S2 情绪标签（`[happy]` `[sad]` `[whisper]` 等，**必须方括号包裹**，写在 text 开头）
+- 短句（朗读 ≤4 秒）；可带 Fish Audio S2 情绪标签（`[happy]` `[sad]` `[whisper]` 等，**必须方括号包裹**，写在 text 开头）。标签只给 TTS 用：打包时写进 manifest 的 `label`（桌宠气泡显示的台词）会剥掉行首标签，剥离后必须非空且 ≤100 字
 - **角色级上传参数一并写进 frontmatter**：`lang`（=①确认的语言）、`description`（角色一句话简介，≤200 字）、`tags`（逗号分隔的角色标签，如作品/类型/关键词）；上传（步骤⑦）自动读取，无需每次命令行指定
 
 写完给用户过目，用户可直接改文件，确认后进③。
@@ -105,10 +105,9 @@ tags: 原神,芙宁娜,枫丹
 
 - file: session-start-1.mp3
   text: [happy] 呀，你来啦！今天也请多指教！
-  name: 登场问候          ← 可选展示名；缺省 = file 去扩展名
 ```
 
-格式纪律（parser 依赖）：frontmatter 只写简单 `key: value`；事件节标题 `## <抽象事件名>`（kebab-case）；条目以 `- file: <裸文件名>` 起头，后续缩进行为 `text:` / `name:`。文件名沿用事件名（`<事件名>-<序号>.mp3`），便于人眼对照。
+格式纪律（parser 依赖）：frontmatter 只写简单 `key: value`；事件节标题 `## <抽象事件名>`（kebab-case）；条目以 `- file: <裸文件名>` 起头，后续缩进行为 `text:`。文件名沿用事件名（`<事件名>-<序号>.mp3`），便于人眼对照。
 
 ### ③ 语音合成
 
@@ -123,7 +122,7 @@ node .claude/skills/make-character/tts.js characters/<角色名>
 
 ### ④ 试听返工
 
-列出 `audio/` 清单让用户试听。不满意：改 dialogue.md 对应 `text`/`name`，删掉对应 mp3（或用 `--only <file>`），重跑 tts.js。确认后进⑤。
+列出 `audio/` 清单让用户试听。不满意：改 dialogue.md 对应 `text`，删掉对应 mp3（或用 `--only <file>`），重跑 tts.js。确认后进⑤。
 
 ### ⑤ 身体段
 

@@ -9,8 +9,9 @@
  * - 每个事件节标题 ∈ 语音白名单（8 词，见 vendor/tomo-contracts/events.ts）
  * - **8 个可绑事件各至少一条音频**（导出门槛：缺哪个事件都不给导出/上架）
  * - 每个音频条目：裸文件名、扩展名白名单、audio/ 下文件存在、text 非空
+ * - label（原台词）去掉行首情绪标签后必须非空、≤100 字（与市场服务端同一把尺子）
  * - 身体段必须齐：pet.json（合法 JSON）+ spritesheet.webp|png
- * 产物结构：manifest.json(version:2) + pet.json + spritesheet.<ext> + audio/<uuid>.<ext>，zip level:0。
+ * 产物结构：manifest.json(version:3，audios[].label = 原台词) + pet.json + spritesheet.<ext> + audio/<uuid>.<ext>，zip level:0。
  * 包内没有 avatar.png（2.0 起角色可视资产只有身体段，见 docs/contracts/角色库包格式.md）。
  *
  * 事件名一律是**抽象事件名**：包与 Agent 无关（manifest 无 mainAgent），任何 Agent 都能导入，
@@ -23,12 +24,20 @@ import { randomUUID } from "node:crypto"
 import { zipSync } from "fflate"
 
 import { VOICE_EVENTS, isBindable, missingVoiceEvents } from "../../../vendor/tomo-contracts/events.ts"
-import { AUDIO_EXT, audioDisplayName } from "../../../vendor/tomo-contracts/audio-ext.ts"
+import { AUDIO_EXT } from "../../../vendor/tomo-contracts/audio-ext.ts"
 import { findSpritesheet, parseDialogue, parseFrontmatter, stagingPaths } from "./dialogue.js"
 
 function fail(msg) {
   console.error(`[pack] ${msg}`)
   process.exit(1)
+}
+
+/** manifest 的音频字段上限（《角色库包格式》§manifest.json）：与市场服务端校验一致 */
+const LABEL_MAX = 100
+
+/** 情绪标签是给 TTS 的合成指令，不是台词；气泡直接显示 label，所以行首标签必须剥掉 */
+function labelFrom(text) {
+  return text.replace(/^(?:\[[a-z-]+\]\s*)+/, "").trim()
 }
 
 const [, , stagingDir, ...flags] = process.argv
@@ -64,7 +73,11 @@ for (const section of dialogue.sections) {
   }
   const audios = []
   for (const item of section.items) {
+    const label = labelFrom(item.text)
     if (!item.text) errors.push(`条目缺少 text：${item.file}`)
+    else if (!label) errors.push(`台词去掉情绪标签后为空：${item.file}`)
+    else if (label.length > LABEL_MAX)
+      errors.push(`台词超过 ${LABEL_MAX} 字（${label.length}）：${item.file}`)
     if (item.file.includes("/") || item.file.includes("\\")) {
       errors.push(`非法文件名（必须是裸文件名）：${item.file}`)
       continue
@@ -81,7 +94,7 @@ for (const section of dialogue.sections) {
     }
     const entry = `${randomUUID()}.${ext}`
     files[`audio/${entry}`] = new Uint8Array(fs.readFileSync(abs))
-    audios.push({ file: entry, name: item.name ?? audioDisplayName(item.file) })
+    audios.push({ file: entry, label })
   }
   if (audios.length === 0) errors.push(`事件没有音频条目：${section.event}`)
   manifestEvents.push({ event: section.event, audios })
@@ -123,7 +136,7 @@ if (errors.length > 0) {
 
 const manifest = {
   format: "tomochar",
-  version: 2,
+  version: 3,
   name,
   exportedAt: new Date().toISOString(),
   events: manifestEvents,

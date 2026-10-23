@@ -1,5 +1,5 @@
 // 本文件由 scripts/sync-tomo-contracts.mjs 从 tomo 仓库同步生成。
-// 来源：tomo@a2a56ca src/shared/events.ts
+// 来源：tomo@bf49878 src/shared/events.ts
 // 刷新：node scripts/sync-tomo-contracts.mjs
 /**
  * 事件语义层的唯一事实源（契约：docs/contracts/事件目录契约.md）。

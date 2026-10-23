@@ -1,5 +1,5 @@
 // 本文件由 scripts/sync-tomo-contracts.mjs 从 tomo 仓库同步生成。
-// 来源：tomo@a2a56ca scripts/load-env.mjs
+// 来源：tomo@bf49878 scripts/load-env.mjs
 // 刷新：node scripts/sync-tomo-contracts.mjs
 /**
  * load-env.mjs — .env 读取（发版脚本与 make-character skill 共用）。
