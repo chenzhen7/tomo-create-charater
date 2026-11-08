@@ -1,7 +1,7 @@
 ---
 name: 提弗洛斯（SD）
 reference_id: d6b75dc5b5dd44919bd0dbd921222ec6
-# 上传参数（步骤⑦ 自动读取）：lang / description / tags
+# 上传参数（步骤⑧ 自动读取）：lang / description / tags
 lang: zh
 description: 《明日方舟：终末地》罗德岛出身的荒野猎手，萨卡兹「再旅者」。冷静得像个老猎人，却会拿着笔记本追着人要故事——句子短、爱用打猎比喻，认定传说该由活着的人继续讲下去
 tags: 明日方舟终末地,提弗洛斯,萨卡兹,荒野猎手,明日方舟

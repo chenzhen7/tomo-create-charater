@@ -1,7 +1,7 @@
 ---
 name: 诸葛亮
 reference_id: e30bbef197c84eabbced4fb19c8aa103
-# 上传参数（步骤⑦ 自动读取）：lang / description / tags
+# 上传参数（步骤⑧ 自动读取）：lang / description / tags
 lang: zh
 description: 从容睿智的军师，文言腔，自称「亮」，运筹帷幄之中。
 tags: 三国演义,诸葛亮,军师,睿智

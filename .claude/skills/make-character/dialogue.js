@@ -104,6 +104,7 @@ export function stagingPaths(stagingDir) {
     dialogue: path.join(stagingDir, "dialogue.md"),
     audioDir: path.join(stagingDir, "audio"),
     petJson: path.join(stagingDir, "pet.json"),
+    persona: path.join(stagingDir, "persona.txt"),
   }
 }
 

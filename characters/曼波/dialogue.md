@@ -1,7 +1,7 @@
 ---
 name: 曼波
 reference_id: 0f08cacd3e354471a4b94dd00b4cc4a3
-# 上传参数（步骤⑦ 自动读取）：lang / description / tags
+# 上传参数（步骤⑧ 自动读取）：lang / description / tags
 lang: zh
 description: 天然呆憨憨的赛马娘，爱唱歌，句句带「曼波」口癖。
 tags: 赛马娘,待兼诗歌剧,曼波,天然呆

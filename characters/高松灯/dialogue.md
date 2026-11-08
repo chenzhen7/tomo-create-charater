@@ -1,7 +1,7 @@
 ---
 name: 高松灯
 reference_id: b4f70fdef5f943c2bf43db00e80ad680
-# 上传参数（步骤⑦ 自动读取）：lang / description / tags
+# 上传参数（步骤⑧ 自动读取）：lang / description / tags
 lang: zh
 description: 内向敏感的「企鹅」主唱，呢喃式独白，自称「私」，用歌声倾诉心事。
 tags: BanG Dream,MyGO,高松灯,主唱,内向

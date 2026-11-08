@@ -1,7 +1,7 @@
 ---
 name: 昔涟
 reference_id: 25b1469648534f40af84b88462289866
-# 上传参数（步骤⑦ 自动读取）：lang / description / tags
+# 上传参数（步骤⑧ 自动读取）：lang / description / tags
 lang: zh
 description: 把一切写成诗篇的涟漪妖精，自称「人家」，句尾带着♪的旋律。
 tags: 星穹铁道,昔涟,妖精,诗篇

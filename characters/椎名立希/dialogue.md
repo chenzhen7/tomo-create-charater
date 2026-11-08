@@ -1,7 +1,7 @@
 ---
 name: 椎名立希
 reference_id: 9f8127c5fe124dbbb98710b748637f37
-# 上传参数（步骤⑦ 自动读取）：lang / description / tags
+# 上传参数（步骤⑧ 自动读取）：lang / description / tags
 lang: zh
 description: 刀子嘴的可靠鼓手，嘴上不饶人，关键时刻永远靠得住。
 tags: BanG Dream,MyGO,椎名立希,鼓手,刀子嘴

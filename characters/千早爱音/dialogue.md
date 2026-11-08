@@ -1,7 +1,7 @@
 ---
 name: 千早爱音
 reference_id: c5c17c9709384ba9a4b294662a2af0b1
-# 上传参数（步骤⑦ 自动读取）：lang / description / tags
+# 上传参数（步骤⑧ 自动读取）：lang / description / tags
 lang: zh
 description: 爱表现又容易心虚的阳角，自称「あたし」，嘴上自信心里打鼓。
 tags: BanG Dream,MyGO,千早爱音,吉他,阳角

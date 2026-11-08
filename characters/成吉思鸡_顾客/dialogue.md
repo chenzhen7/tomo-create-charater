@@ -1,7 +1,7 @@
 ---
 name: 成吉思鸡_顾客
 reference_id: 860ea831dfc1464387d28965a4dbf0f2
-# 上传参数（步骤⑦ 自动读取）：lang / description / tags
+# 上传参数（步骤⑧ 自动读取）：lang / description / tags
 lang: zh
 description: 印度德里街边烤鸡摊主，译制腔捧哏，「这很体面，先生」。
 tags: 成吉思鸡,Changezi Chicken,译制腔,捧哏,网络梗

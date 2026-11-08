@@ -1,5 +1,5 @@
 // 本文件由 scripts/sync-tomo-contracts.mjs 从 tomo 仓库同步生成。
-// 来源：tomo@bf49878 src/shared/types.ts
+// 来源：tomo@51b344b src/shared/types.ts
 // 刷新：node scripts/sync-tomo-contracts.mjs
 /**
  * 主进程与渲染进程共享的契约类型。
@@ -9,7 +9,22 @@
  * 本文件只保留 Agent 身份与数据模型。两文件互引均为 `import type`，编译期擦除、无运行时环。
  */
 
+import type {
+  StickerFrequency,
+  UserPersona,
+} from "./chat"
 import type { AbstractEvent } from "./events"
+import type {
+  ModelSettingsView,
+  ModelTestInput,
+  ProviderTestResult,
+  SaveModelInput,
+} from "./providers"
+import type {
+  SaveTtsEntryInput,
+  TtsSettingsView,
+  TtsTestResult,
+} from "./tts"
 import type { PetdexSource } from "./tomo-res-url"
 
 // ---------------------------------------------------------------- Agent
@@ -47,10 +62,9 @@ export const AGENT_META: Record<AgentId, { label: string }> = {
 
 // ---------------------------------------------------------------- 数据模型
 
-/** 角色：挂在某个 Agent 下的一整套事件音频绑定的命名容器 */
+/** 角色：全局命名容器（3.0 起不再归属某个 Agent） */
 export interface CharacterInfo {
   id: number
-  agent: AgentId
   name: string
   createdAt: string
   /** 身体图集 URL（`tomo-res://`，带内容指纹）；**没有身体 → null**（桌面上不出现、界面显示「还没有宠物」） */
@@ -190,18 +204,35 @@ export interface UpdateView {
 /**
  * 状态同步：静态数据由各页面挂载时自治拉取，只有 runtime 走推送。
  * 角色详情页按 characterId 显式读写（与激活解耦）。主进程只存两个全局指针（都在 settings 表）：
- * `activeCharacter:<agent>` 与 `currentAgent`。hook 写入由角色生命周期驱动，tomo 不回读 Agent 配置。
+ * `activeCharacter`（全局唯一）与 `currentAgent`。hook 写入由角色生命周期驱动，tomo 不回读 Agent 配置。
  */
 export interface BindingsView {
   /** 详情页目标角色（getBindingsView 查不到角色时整个视图返回 null） */
   character: CharacterInfo
-  /** 该角色是否其 Agent 的激活角色（详情页「使用中」徽章用） */
+  /** 该角色是否是全局激活角色（详情页「使用中」徽章用） */
   active: boolean
   /** 全部绑定；未出现在这里的抽象事件 = 该角色没配音频 */
   bindings: AudioBinding[]
+  /** 人格文本；null/空白 = 未设置（Prompt 回退内核提示词） */
+  persona: string | null
 }
 
-/** 角色管理页视图：该 Agent 的角色列表 + 激活指针 */
+/** 设置页的左侧分区 */
+export type SettingsSectionKey =
+  | "general"
+  | "pet"
+  | "chat"
+  | "tts"
+  | "voice"
+  | "account"
+  | "about"
+
+/** 管理窗口内部跳转目标（聊天页「去设置」/「编辑角色」） */
+export type NavigateTarget =
+  | { page: "settings"; section?: SettingsSectionKey }
+  | { page: "character-detail"; characterId: number }
+
+/** 角色管理页视图：全局角色列表 + 全局激活指针 */
 export interface CharactersView {
   characters: CharacterInfo[]
   activeId: number | null
@@ -209,7 +240,7 @@ export interface CharactersView {
 
 export interface SettingsView {
   guard: GuardSettings
-  /** 当前 Agent：只服务它下面的激活角色（侧边栏切换器读写） */
+  /** 当前 Agent：事件门控与 hook 安装的对象（侧边栏切换器读写） */
   currentAgent: AgentId
   /** 桌面宠物总开关（全局）。托盘与设置页两个入口读写同一个键 */
   petVisible: boolean
@@ -219,6 +250,12 @@ export interface SettingsView {
   autostart: boolean
   /** 当前运行形态是否支持开机自启（打包态为 true；dev 为 false） */
   autostartAvailable: boolean
+  /** 是否把当前工作快照注入聊天（默认开；关闭 = 整段不注入） */
+  workSnapshot: boolean
+  /** 角色发贴纸的频率档位（全局；关闭 = Prompt 里也没有贴纸目录） */
+  stickerFrequency: StickerFrequency
+  /** 多气泡回复（全局；关闭 = 文本不切分、贴纸归末尾，只影响新生成） */
+  multiBubble: boolean
 }
 
 /** 内部完整守卫参数（DB 里按 key 分散存储） */
@@ -254,11 +291,18 @@ export interface HookEnvelope {
   raw?: unknown
 }
 
+/** 切换当前 Agent 的结果：切换本身成功，hook 写入失败只作为警告返回（不阻断切换） */
+export interface SetCurrentAgentResult {
+  settings: SettingsView
+  /** 目标 Agent 的 hook 写入失败原因；成功为 null */
+  hookWarning: string | null
+}
+
 /** window.tomo 的 IPC 接口（preload 实现，渲染进程调用）。写操作返回对应切片 */
 export interface TomoApi {
   /** 角色详情视图（全部绑定）；角色不存在返回 null */
   getBindingsView: (characterId: number) => Promise<BindingsView | null>
-  getCharactersView: (agent: AgentId) => Promise<CharactersView>
+  getCharactersView: () => Promise<CharactersView>
   getSettingsView: () => Promise<SettingsView>
   /** 运行状态页仪表盘（端口/今日播放/事件流水） */
   getRuntimeView: () => Promise<RuntimeInfo>
@@ -269,19 +313,25 @@ export interface TomoApi {
   updateAudioLabel: (bindingId: number, label: string) => Promise<AudioBinding[]>
   preview: (bindingId: number) => Promise<void>
   setGuard: (patch: Partial<GuardSettings>) => Promise<GuardSettings>
-  /** 切换当前 Agent：此后宠物/语音只服务它下面的激活角色（不重写任何 hook） */
-  setCurrentAgent: (agent: AgentId) => Promise<SettingsView>
+  /** 切换当前 Agent：此后事件门控/宠物/语音服务它，并幂等安装它的 hook；失败只回警告 */
+  setCurrentAgent: (agent: AgentId) => Promise<SetCurrentAgentResult>
   /** 打开指定 Agent 的 hook 配置文件所在目录并选中该文件；Agent 未接入抛错 */
   openConfigFolder: (agent: AgentId) => Promise<void>
   /** 打开指定角色的私有目录（userData/characters/<id>）；不存在则先创建 */
   openCharacterFolder: (characterId: number) => Promise<void>
-  /** 角色管理。写操作返回最新 CharactersView */
-  createCharacter: (agent: AgentId, name: string) => Promise<CharactersView>
+  /** 角色管理（全局角色，与 Agent 无关）。写操作返回最新 CharactersView */
+  createCharacter: (name: string) => Promise<CharactersView>
   renameCharacter: (characterId: number, name: string) => Promise<CharactersView>
   deleteCharacter: (characterId: number) => Promise<CharactersView>
   copyCharacter: (characterId: number) => Promise<CharactersView>
-  /** 激活角色（顺带装该 Agent 的 hook）；characterId 为 null = 不使用角色（剥离全部 tomo hook） */
-  activateCharacter: (agent: AgentId, characterId: number | null) => Promise<CharactersView>
+  /** 激活角色（顺带装当前 Agent 的 hook）；null = 不使用角色（只清指针，不卸 hook） */
+  activateCharacter: (characterId: number | null) => Promise<CharactersView>
+  /** 管理窗口「进入聊天」：激活该角色并打开聊天窗口；返回最新角色视图 */
+  openChat: (characterId: number) => Promise<CharactersView>
+  /** 侧边栏「聊天」：只打开聊天窗口，不改激活角色 */
+  openChatWindow: () => Promise<void>
+  /** 手动移除当前 Agent 的 hook（设置页）；不持久化，下次启动/切 Agent 会重装 */
+  removeCurrentAgentHooks: () => Promise<void>
   /**
    * 更换角色身体：从宠物包（.zip / 1.0 存量 .tomochar / PetDex zip）提取身体段覆盖角色目录，
    * 音频绑定与激活状态一概不动。弹文件对话框，用户取消返回 null。
@@ -329,12 +379,19 @@ export interface TomoApi {
    * 拔了外接屏）时唯一的回头路——此时它仍在运行、仍在播动画，只是不在任何看得见的地方。
    */
   resetPetPosition: () => Promise<void>
+  /** 整段替换角色人格；null/空白 = 清除并回退内核提示词。返回最新详情视图 */
+  setCharacterPersona: (
+    characterId: number,
+    persona: string | null,
+  ) => Promise<BindingsView>
+  /** 导入 CCv2/V3 角色卡（JSON / PNG 的 chara、ccv3 tEXt），整段替换人格；用户取消返回 null */
+  importCharacterCard: (characterId: number) => Promise<BindingsView | null>
   /** 导出角色为 .zip（弹保存对话框；完整三件校验——身体 + 8 个可绑事件各至少一条音频，缺任一拒绝；用户取消返回 false） */
   exportCharacter: (characterId: number) => Promise<boolean>
   /** 导入 .zip（含 1.0 存量 .tomochar）/ PetDex zip（弹多选对话框；用户取消返回 null；单个失败不中断其余，失败信息汇入 Error.message 抛出） */
-  importCharacters: (agent: AgentId) => Promise<CharactersView | null>
+  importCharacters: () => Promise<CharactersView | null>
   /** 从内存数据导入角色包（角色库下载场景；校验失败抛错） */
-  importCharacterPackage: (agent: AgentId, data: Uint8Array) => Promise<CharactersView>
+  importCharacterPackage: (data: Uint8Array) => Promise<CharactersView>
   /** 打开上传角色包落地页（系统浏览器；URL 主进程写死，见 src/shared/urls.ts） */
   openUploadPage: () => Promise<void>
   /** 订阅运行时推送（事件到达/播放开始结束）；返回退订函数 */
@@ -356,4 +413,41 @@ export interface TomoApi {
   quitAndInstallUpdate: () => Promise<void>
   /** 订阅更新状态推送；返回退订函数 */
   onUpdateStatus: (cb: (view: UpdateView) => void) => () => void
+  /** 订阅主进程要求的管理页跳转（聊天页「去设置」/「编辑角色」）；返回退订函数 */
+  onNavigate: (cb: (target: NavigateTarget) => void) => () => void
+  // ---- 3.0 模型配置 ----
+  /** 模型列表 + 当前聊天/摘要模型指针；**不含任何 API Key** */
+  getModelSettings: () => Promise<ModelSettingsView>
+  /** 新建（省略 id）或更新模型；apiKey 省略=不改、null=清除、字符串=替换 */
+  saveModel: (input: SaveModelInput) => Promise<ModelSettingsView>
+  /** 删除模型，并清空引用它的指针；返回最新视图（调用方据此提示被清空的选择） */
+  deleteModel: (id: string) => Promise<ModelSettingsView>
+  /** 连接测试：不落库；省略 apiKey 时用已保存的 Key */
+  testModel: (input: ModelTestInput) => Promise<ProviderTestResult>
+  /** 设为当前聊天模型 */
+  useModel: (id: string) => Promise<ModelSettingsView>
+  /** 设置摘要模型；null = 跟随聊天模型 */
+  setSummaryModel: (id: string | null) => Promise<ModelSettingsView>
+  /** 设置情绪分类模型；null = 跟随聊天模型 */
+  setEmotionModel: (id: string | null) => Promise<ModelSettingsView>
+  // ---- P1 语音模型（全局共用；Key 只回 hasKey） ----
+  /** 语音模型条目列表 */
+  getTtsSettings: () => Promise<TtsSettingsView>
+  /** 新建（省略 id）或更新语音模型；apiKey 三态语义与聊天模型一致 */
+  saveTtsEntry: (input: SaveTtsEntryInput) => Promise<TtsSettingsView>
+  /** 删除语音模型，并清空引用它的角色音色 */
+  deleteTtsEntry: (id: string) => Promise<TtsSettingsView>
+  /** 连接测试：只校验地址与 Key；省略 apiKey 时用已保存的 Key */
+  testTtsEntry: (input: SaveTtsEntryInput) => Promise<TtsTestResult>
+  /** 是否把当前工作快照注入聊天；返回最新设置视图 */
+  setWorkSnapshot: (enabled: boolean) => Promise<SettingsView>
+  /** 角色发贴纸的频率档位；返回最新设置视图 */
+  setStickerFrequency: (frequency: StickerFrequency) => Promise<SettingsView>
+  /** 多气泡回复开关；返回最新设置视图 */
+  setMultiBubble: (enabled: boolean) => Promise<SettingsView>
+  // ---- 3.0 用户 Persona ----
+  /** 全局用户 Persona（昵称 + 描述）；未配置为空字符串对 */
+  getUserPersona: () => Promise<UserPersona>
+  /** 保存全局用户 Persona；两项都为空 = 清除 */
+  setUserPersona: (persona: UserPersona) => Promise<UserPersona>
 }

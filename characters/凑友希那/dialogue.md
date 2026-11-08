@@ -1,7 +1,7 @@
 ---
 name: 凑友希那
 reference_id: ca2078e67881482eb5091ec8477762b9
-# 上传参数（步骤⑦ 自动读取）：lang / description / tags
+# 上传参数（步骤⑧ 自动读取）：lang / description / tags
 lang: zh
 description: Roselia 高冷严格的主唱，目标至上，极致自律。
 tags: BanG Dream,Roselia,凑友希那,主唱,高冷

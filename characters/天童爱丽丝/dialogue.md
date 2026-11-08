@@ -1,7 +1,7 @@
 ---
 name: 天童爱丽丝
 reference_id: 6115bfa5ef68412cb9bb58836b8292c7
-# 上传参数（步骤⑦ 自动读取）：lang / description / tags
+# 上传参数（步骤⑧ 自动读取）：lang / description / tags
 lang: zh
 description: 游戏开发部的中二勇者，满口游戏术语，把日常当冒险推进。
 tags: 蔚蓝档案,天童爱丽丝,游戏开发部,中二,勇者

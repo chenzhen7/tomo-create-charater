@@ -1,7 +1,7 @@
 ---
 name: 忍野忍
 reference_id: c2a1318f6747404297c14157f5adcce0
-# 上传参数（步骤⑦ 自动读取）：lang / description / tags
+# 上传参数（步骤⑧ 自动读取）：lang / description / tags
 lang: ja
 description: 物语系列的最强吸血鬼公主。金发幼女外表、600岁高龄，一口古风老人腔，傲娇毒舌、嘴硬心软
 tags: 物语系列,忍野忍,吸血鬼,坂本真绫,傲娇

@@ -1,7 +1,7 @@
 ---
 name: 卢本伟
 reference_id: 5a918b41b2034f9b81a8da9cb08883cf
-# 上传参数（步骤⑦ 自动读取）：lang / description / tags
+# 上传参数（步骤⑧ 自动读取）：lang / description / tags
 lang: zh
 description: 亢奋主播腔，「给阿姨倒一杯卡布奇诺」式名梗制造机。
 tags: 卢本伟,主播,名梗,电竞

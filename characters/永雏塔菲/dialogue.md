@@ -1,7 +1,7 @@
 ---
 name: 永雏塔菲
 reference_id: 55b28b196e1c4fff9a55cd32a46eff25
-# 上传参数（步骤⑦ 自动读取）：lang / description / tags
+# 上传参数（步骤⑧ 自动读取）：lang / description / tags
 lang: zh
 description: 软萌慵懒的雏鸟系 VUP，自称「taffy」，句尾必带「喵」，喊观众「雏草姬殿下」。
 tags: 永雏塔菲,VUP,虚拟主播,软萌

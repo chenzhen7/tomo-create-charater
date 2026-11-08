@@ -1,7 +1,7 @@
 ---
 name: 三角初华
 reference_id: 7aacbd4142e741379c0063b9d4606a7c
-# 上传参数（步骤⑦ 自动读取）：lang / description / tags
+# 上传参数（步骤⑧ 自动读取）：lang / description / tags
 lang: zh
 description: 国民偶像的温柔面具与执念内里交织，Doloris 的黑暗在微笑下低语。
 tags: Ave Mujica,三角初华,偶像,温柔,执念

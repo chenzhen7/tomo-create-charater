@@ -1,7 +1,7 @@
 ---
 name: 曹操
 reference_id: f6f293aabfe24e46aff0fc309c233d31
-# 上传参数（步骤⑦ 自动读取）：lang / description / tags
+# 上传参数（步骤⑧ 自动读取）：lang / description / tags
 lang: zh
 description: 新三国的枭雄，多疑又惜才，自称「孤」，威仪自持。
 tags: 新三国,曹操,枭雄,三国

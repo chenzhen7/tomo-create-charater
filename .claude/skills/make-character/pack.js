@@ -11,7 +11,8 @@
  * - 每个音频条目：裸文件名、扩展名白名单、audio/ 下文件存在、text 非空
  * - label（原台词）去掉行首情绪标签后必须非空、≤100 字（与市场服务端同一把尺子）
  * - 身体段必须齐：pet.json（合法 JSON）+ spritesheet.webp|png
- * 产物结构：manifest.json(version:3，audios[].label = 原台词) + pet.json + spritesheet.<ext> + audio/<uuid>.<ext>，zip level:0。
+ * - 人格 persona.txt 可选：有内容就校验严格 UTF-8 / 10,000 UTF-16 码元后原样入包；缺失或空白只警告
+ * 产物结构：manifest.json(version:4，audios[].label = 原台词) + pet.json + spritesheet.<ext> + audio/<uuid>.<ext> + 可选 persona.txt，zip level:0。
  * 包内没有 avatar.png（2.0 起角色可视资产只有身体段，见 docs/contracts/角色库包格式.md）。
  *
  * 事件名一律是**抽象事件名**：包与 Agent 无关（manifest 无 mainAgent），任何 Agent 都能导入，
@@ -34,6 +35,13 @@ function fail(msg) {
 
 /** manifest 的音频字段上限（《角色库包格式》§manifest.json）：与市场服务端校验一致 */
 const LABEL_MAX = 100
+
+const PERSONA_TXT = "persona.txt"
+/**
+ * 与 tomo/src/shared/chat.ts 的 PERSONA_MAX_LENGTH、Java String.length() 同一口径：
+ * UTF-16 码元数（JS string.length 天然就是这个）。改上限时三处一起改。
+ */
+const PERSONA_MAX_LENGTH = 10_000
 
 /** 情绪标签是给 TTS 的合成指令，不是台词；气泡直接显示 label，所以行首标签必须剥掉 */
 function labelFrom(text) {
@@ -128,15 +136,71 @@ if (!sheet) {
   files[path.basename(sheet)] = new Uint8Array(fs.readFileSync(sheet))
 }
 
+// ---------------------------------------------------------------- 人格（v4，可选）
+
+const rootEntries = fs.readdirSync(stagingDir)
+/** @type {string | null} */
+let personaText = null
+/** @type {string | null} */
+let personaNote = null
+// Windows 文件系统不区分大小写：只用 existsSync 会把 Persona.txt 当成 persona.txt 收进包，
+// 但导入侧按精确名查找，进包后等同于没有人格。这里像 pet.json 一样点名报错。
+const personaCaseWrong = rootEntries.filter(
+  (name) => name.toLowerCase() === PERSONA_TXT && name !== PERSONA_TXT
+)
+if (personaCaseWrong.length > 0) {
+  errors.push(
+    `文件名大小写不对：${personaCaseWrong.join(" / ")}——必须是全小写的 ${PERSONA_TXT}` +
+      "（Windows 上看着是同一个文件，导入侧却是按精确名字找的，进包后等同于没有人格）"
+  )
+} else if (rootEntries.includes(PERSONA_TXT)) {
+  if (!fs.statSync(paths.persona).isFile()) {
+    errors.push(`${PERSONA_TXT} 必须是文件，不能是目录`)
+  } else {
+    let text
+    try {
+      // fs 的 "utf8" 会把坏字节静默替换成 U+FFFD；这里必须严格解码
+      text = new TextDecoder("utf-8", { fatal: true }).decode(
+        new Uint8Array(fs.readFileSync(paths.persona))
+      )
+    } catch (e) {
+      errors.push(
+        `${PERSONA_TXT} 不是有效的 UTF-8：${e instanceof Error ? e.message : e}`
+      )
+    }
+    if (text !== undefined) {
+      const value = text.trim()
+      if (!value) {
+        personaNote = `${PERSONA_TXT} 为空，按没有人格处理，未打进包`
+      } else if (value.length > PERSONA_MAX_LENGTH) {
+        errors.push(
+          `${PERSONA_TXT} 不能超过 ${PERSONA_MAX_LENGTH} 个字符（当前 ${value.length} 个）`
+        )
+      } else {
+        personaText = value
+      }
+    }
+  }
+} else {
+  personaNote =
+    `未找到 ${PERSONA_TXT}：包仍可导入/上架，聊天会使用内核提示词；` +
+    "要角色人格就回到 SKILL.md 步骤②"
+}
+
 if (errors.length > 0) {
   fail(`校验未通过，未生成包：\n` + errors.map((e) => `  - ${e}`).join("\n"))
 }
 
 // ---------------------------------------------------------------- 打包
 
+if (personaText !== null) {
+  // 写 trim 后的文本：与应用导入后存进 DB 的内容一致，避免包内带着首尾空白
+  files[PERSONA_TXT] = new TextEncoder().encode(personaText)
+}
+
 const manifest = {
   format: "tomochar",
-  version: 3,
+  version: 4,
   name,
   exportedAt: new Date().toISOString(),
   events: manifestEvents,
@@ -152,9 +216,12 @@ fs.mkdirSync(path.dirname(out), { recursive: true })
 fs.writeFileSync(out, zipSync(files, { level: 0 }))
 
 const clipCount = manifestEvents.reduce((n, e) => n + e.audios.length, 0)
+const personaSummary = personaText === null ? "无" : `${personaText.length} 字符`
 console.log(
   `[pack] ✓ ${out}\n` +
     `  角色：${name}\n` +
     `  事件：${manifestEvents.length} 个，音频：${clipCount} 条\n` +
+    `  人格：${personaSummary}\n` +
     `  到应用里「角色管理 → 导入」即可完成安装`
 )
+if (personaNote) console.error(`  ⚠ ${personaNote}`)

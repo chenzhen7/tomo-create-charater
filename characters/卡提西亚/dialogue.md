@@ -1,7 +1,7 @@
 ---
 name: 卡提西亚
 reference_id: 30ad478e008b4142babab2675dac1834
-# 上传参数（步骤⑦ 自动读取）：lang / description / tags
+# 上传参数（步骤⑧ 自动读取）：lang / description / tags
 lang: zh
 description: 活泼元气的少女音色，通用编程陪伴语音。
 tags: 鸣潮,卡提希娅,少女,元气

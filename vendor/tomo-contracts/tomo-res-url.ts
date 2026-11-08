@@ -1,20 +1,21 @@
 // 本文件由 scripts/sync-tomo-contracts.mjs 从 tomo 仓库同步生成。
-// 来源：tomo@bf49878 src/shared/tomo-res-url.ts
+// 来源：tomo@51b344b src/shared/tomo-res-url.ts
 // 刷新：node scripts/sync-tomo-contracts.mjs
 /**
  * tomo-res:// URL 的解析与拼接（契约的唯一来源）。
  *
- * 两个 host，各代表一个**资源根**：
+ * 三个 host，各代表一个**资源根**：
  * - `tomo-res://char/<角色id>/<角色目录内相对路径>`（相对路径经 encodeURIComponent 后可能含 %2F）
  * - `tomo-res://petdex/<来源>/<slug>/<宠物目录内相对路径>`
+ * - `tomo-res://chat-audio/<角色id>/<会话id>/<消息id>/<候选id>/<uuid>.mp3`
  *
  * 名字是 tomo-res 而非 tomo-audio：这个协议的本质是**本地资产的文件访问**，
  * 音频只是第一个消费者（2.0 起图集与头像同样走它）。别再为新的资产另开协议——
- * petdex 那一路是给协议**加了一个根**，不是新协议。
+ * petdex / chat-audio 是给协议**加了一个根**，不是新协议。
  *
- * 两路的宽松度不同，这是刻意的：
+ * 各路的宽松度不同，这是刻意的：
  * - `char` 的 rel **允许绝对路径**（音频外链按 DB 引用白名单放行，见 CharacterFileProtocol）
- * - `petdex` 的 rel **只允许相对路径**——那些目录是用户的下载目录，不该成为读任意文件的跳板
+ * - `petdex` 的 rel **只允许相对路径**——那些目录不该成为读任意文件的跳板
  *
  * ⚠️ 历史教训：host 曾用纯数字（tomo-audio://<id>/...），Chromium 标准 URL 解析器会把
  * 纯数字 host 规范化为 IPv4 点分形式（5 → 0.0.0.5），导致 Number(hostname)=NaN → 400。
@@ -42,6 +43,7 @@ export function isPetdexSource(v: unknown): v is PetdexSource {
 export type TomoResTarget =
   | { kind: "char"; characterId: number; rel: string }
   | { kind: "petdex"; source: PetdexSource; slug: string; rel: string }
+  | { kind: "chat-audio"; rel: string }
 
 export function parseTomoResUrl(urlString: string): TomoResTarget | null {
   let url: URL
@@ -73,7 +75,26 @@ export function parseTomoResUrl(urlString: string): TomoResTarget | null {
     return { kind: "petdex", source, slug, rel }
   }
 
+  if (url.hostname === "chat-audio") {
+    const rel = segments.join("/")
+    if (!isSafeChatAudioFile(rel)) return null
+    return { kind: "chat-audio", rel }
+  }
+
   return null
+}
+
+/**
+ * 聊天语音文件的形状：`<角色id>/<会话id>/<消息id>/<候选id>/<uuid>.mp3`。
+ * 前三段必须是正整数；候选 id / 文件名只允许安全字符；扩展名固定 mp3。
+ * 这是协议层的第二道校验（第一道是 resolve 后必须落在根内）。
+ */
+export function isSafeChatAudioFile(file: string): boolean {
+  const parts = file.split("/")
+  if (parts.length !== 5) return false
+  if (!parts.slice(0, 3).every((part) => /^[1-9]\d*$/.test(part))) return false
+  if (!/^[A-Za-z0-9_-]+$/.test(parts[3])) return false
+  return /^[A-Za-z0-9_-]+\.mp3$/.test(parts[4])
 }
 
 /**
@@ -99,4 +120,9 @@ export function tomoResUrl(characterId: number, rel: string): string {
 /** 拼 tomo-res://petdex/<来源>/<slug>/<相对路径>；rel 需自行 encodeURIComponent */
 export function petdexResUrl(source: PetdexSource, slug: string, rel: string): string {
   return `tomo-res://petdex/${source}/${encodeURIComponent(slug)}/${rel}`
+}
+
+/** 拼 tomo-res://chat-audio/<相对路径>；rel 由 ChatAudioStore 生成，已是安全字符 */
+export function chatAudioResUrl(rel: string): string {
+  return `tomo-res://chat-audio/${rel}`
 }

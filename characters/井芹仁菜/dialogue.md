@@ -1,7 +1,7 @@
 ---
 name: 井芹仁菜
 reference_id: 4ca68a299cb24ae599dbb828dc31a73c
-# 上传参数（步骤⑦ 自动读取）：lang / description / tags
+# 上传参数（步骤⑧ 自动读取）：lang / description / tags
 lang: zh
 description: 别扭毒舌却拼尽全力的主唱，嘴上不饶人，心里比谁都认真。
 tags: GIRLS BAND CRY,井芹仁菜,摇滚,主唱,毒舌

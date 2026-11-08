@@ -22,6 +22,7 @@ characters/                      # 制作目录：一个角色一个子目录 + 
 ├── roster.md                    # 角色清单与制作状态追踪表
 └── <角色名>/
     ├── dialogue.md              # 台词表 + 元信息（frontmatter），人机共同编辑的核心文件
+    ├── persona.txt              # 人格纯文本（直接作为聊天系统提示词；原稿，入库）
     ├── audio/                   # tts.js 生成的语音（<事件>-<序号>.mp3）
     ├── tachie.png               # 官方立绘（美术参考）
     ├── tachie2.png              # 第二参考图
@@ -44,19 +45,20 @@ scripts/sync-tomo-contracts.mjs  # 快照的刷新脚本
 
 ### 编排：`/make-character <人物> [语言] [模型ID]`
 
-完整流程见 [.claude/skills/make-character/SKILL.md](.claude/skills/make-character/SKILL.md)。七个阶段：
+完整流程见 [.claude/skills/make-character/SKILL.md](.claude/skills/make-character/SKILL.md)。八个阶段：
 
 | 阶段 | 动作 | 产物 / 命令 |
 |------|------|-------------|
 | ① 采集 | WebSearch/WebFetch 调研人设与口吻锚点，搜 Fish Audio 现成音色 | `dialogue.md` frontmatter 的 `reference_id` |
-| ② 台词 | 按抽象事件目录写台词表（每个可绑事件 2~3 条短句） | `characters/<角色名>/dialogue.md` |
-| ③ 合成 | Fish Audio TTS（幂等，已存在的 mp3 跳过） | `node .claude/skills/make-character/tts.js characters/<角色名>` |
-| ④ 试听 | 人工确认音色贴不贴脸 | — |
-| ⑤ 身体 | 收编 tomo-hatch-pet 产出的 `pet.json` + `spritesheet.webp` | `node .claude/skills/make-character/body.js characters/<角色名> --from <来源目录\|zip>` |
-| ⑥ 打包 | 全量校验 + 出 `.zip` | `node .claude/skills/make-character/pack.js characters/<角色名>` |
-| ⑦ 上传 | 传角色库市场（默认测试环境，生产需 `--yes`） | `node .claude/skills/make-character/upload.js characters/<角色名> [--env prod --yes]` |
+| ② 人格 | 按固定六段模板写人格（示例对话优先于形容词） | `characters/<角色名>/persona.txt` |
+| ③ 台词 | 按抽象事件目录写台词表（每个可绑事件 2~3 条短句） | `characters/<角色名>/dialogue.md` |
+| ④ 合成 | Fish Audio TTS（幂等，已存在的 mp3 跳过） | `node .claude/skills/make-character/tts.js characters/<角色名>` |
+| ⑤ 试听 | 人工确认音色贴不贴脸 | — |
+| ⑥ 身体 | 收编 tomo-hatch-pet 产出的 `pet.json` + `spritesheet.webp` | `node .claude/skills/make-character/body.js characters/<角色名> --from <来源目录\|zip>` |
+| ⑦ 打包 | 全量校验 + 出 `.zip`（manifest v4，含可选 `persona.txt`） | `node .claude/skills/make-character/pack.js characters/<角色名>` |
+| ⑧ 上传 | 传角色库市场（默认测试环境，生产需 `--yes`） | `node .claude/skills/make-character/upload.js characters/<角色名> [--env prod --yes]` |
 
-每个阶段完成后把 `characters/roster.md` 该行的「状态」列推进一格：`待调研 → 台词 → 合成 → 试听 → 身体 → 打包 → 已上传 → 已上线`。
+每个阶段完成后把 `characters/roster.md` 该行的「状态」列推进一格：`待调研 → 人格 → 台词 → 合成 → 试听 → 身体 → 打包 → 已上传 → 已上线`。
 
 ### 身体段：`/tomo-hatch-pet`
 
@@ -109,7 +111,7 @@ node scripts/sync-tomo-contracts.mjs --from <路径>    # 或指定 tomo checkou
 
 **能不能凭已入库的东西重新造出来？**
 
-- **入库**：`dialogue.md`（台词原稿）· `tachie*.png`（立绘参考）· `pet.json` + `spritesheet.*`（身体段）——这些是**不可再生的原创资产**：同一个 prompt 重跑不会得到同一只，丢了只能重新孵一遍。
+- **入库**：`dialogue.md`（台词原稿）· `persona.txt`（人格原稿）· `tachie*.png`（立绘参考）· `pet.json` + `spritesheet.*`（身体段）——这些是**不可再生的原创资产**：同一个 prompt 重跑不会得到同一只，丢了只能重新孵一遍。
 - **不入库**：`audio/`（`tts.js` 幂等重跑）· `out/`（`pack.js` 重打）· `output/`（整棵 scratch 树）。
 
 ---

@@ -13,7 +13,7 @@
  *   --tag <tag>             标签（可重复，与 dialogue.md 的 tags 合并去重）
  *   --yes                   生产环境跳过确认
  *
- * 参数来源：lang / description / tags 仅取该角色 dialogue.md frontmatter（步骤② 写入），CLI flag 临时覆盖；baseUrl 取固定默认值，凭据来自 .env。
+ * 参数来源：lang / description / tags 仅取该角色 dialogue.md frontmatter（步骤③ 写入），CLI flag 临时覆盖；baseUrl 取固定默认值，凭据来自 .env。
  * 配置（优先级：同名环境变量 > repo 根 .env（敏感凭据）> .env.defaults（无隐私固定默认值））：
  *   测试环境：MARKET_TEST_BASE_URL / MARKET_TEST_USERNAME / MARKET_TEST_PASSWORD
  *   生产环境：MARKET_PROD_BASE_URL / MARKET_PROD_USERNAME / MARKET_PROD_PASSWORD
@@ -260,7 +260,7 @@ function loadConfig(opts, dialogueMeta) {
   if (!base) fail(`缺少 MARKET_${E}_BASE_URL：请在 repo 根 .env.defaults 填写 ${env} 环境服务地址（或设同名环境变量）`)
   if (!username) fail(`缺少 MARKET_${E}_USERNAME：请在 .env 填写 ${env} 环境登录账号`)
   if (!password) fail(`缺少 MARKET_${E}_PASSWORD：请在 .env 填写 ${env} 环境登录密码`)
-  if (!lang) fail(`缺少语言标签：请在 dialogue.md frontmatter 写 lang（步骤②），或用 --lang <code> 指定`)
+  if (!lang) fail(`缺少语言标签：请在 dialogue.md frontmatter 写 lang（步骤③），或用 --lang <code> 指定`)
   if (description.length > 200) fail(`简介超过 200 字（当前 ${description.length} 字）`)
 
   return { env, base, username, password, lang, description, tags }

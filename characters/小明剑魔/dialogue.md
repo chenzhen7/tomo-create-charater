@@ -1,7 +1,7 @@
 ---
 name: 小明剑魔
 reference_id: 4f77d5137e15401b96617895a2275923
-# 上传参数（步骤⑦ 自动读取）：lang / description / tags
+# 上传参数（步骤⑧ 自动读取）：lang / description / tags
 lang: zh
 description: 嚣张又容易破防的剑魔玩家，嘴上王者，操作拉满。
 tags: 英雄联盟,小明剑魔,剑魔,主播
