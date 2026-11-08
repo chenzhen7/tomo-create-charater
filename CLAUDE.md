@@ -22,7 +22,7 @@ characters/                      # 制作目录：一个角色一个子目录 + 
 ├── roster.md                    # 角色清单与制作状态追踪表
 └── <角色名>/
     ├── dialogue.md              # 台词表 + 元信息（frontmatter），人机共同编辑的核心文件
-    ├── persona.txt              # 人格纯文本（直接作为聊天系统提示词；原稿，入库）
+    ├── persona.txt              # 人格提示词（作为系统提示词；原稿，入库）
     ├── audio/                   # tts.js 生成的语音（<事件>-<序号>.mp3）
     ├── tachie.png               # 官方立绘（美术参考）
     ├── tachie2.png              # 第二参考图
@@ -50,7 +50,7 @@ scripts/sync-tomo-contracts.mjs  # 快照的刷新脚本
 | 阶段 | 动作 | 产物 / 命令 |
 |------|------|-------------|
 | ① 采集 | WebSearch/WebFetch 调研人设与口吻锚点，搜 Fish Audio 现成音色 | `dialogue.md` frontmatter 的 `reference_id` |
-| ② 人格 | 按固定六段模板写人格（示例对话优先于形容词） | `characters/<角色名>/persona.txt` |
+| ② 人格 | 按固定模板写人格（示例对话优先于形容词） | `characters/<角色名>/persona.txt` |
 | ③ 台词 | 按抽象事件目录写台词表（每个可绑事件 2~3 条短句） | `characters/<角色名>/dialogue.md` |
 | ④ 合成 | Fish Audio TTS（幂等，已存在的 mp3 跳过） | `node .claude/skills/make-character/tts.js characters/<角色名>` |
 | ⑤ 试听 | 人工确认音色贴不贴脸 | — |
