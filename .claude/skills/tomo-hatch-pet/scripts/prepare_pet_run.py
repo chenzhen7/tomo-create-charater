@@ -74,7 +74,7 @@ STATE_REQUIREMENTS = {
         "Use only subtle idle motion: gentle breathing, a tiny blink, a slight head or body bob, a very small material sway, or another quiet motion that fits the pet persona.",
         "Keep the pet essentially in the same pose, facing direction, silhouette, markings, palette, and prop state across all 6 frames.",
         "Idle variation must stay calm but still read as animation; do not repeat effectively identical copies across the loop.",
-        "Do not show waving, walking, running, jumping, talking, working, reviewing, emotional reactions, large gestures, item interactions, or new props.",
+        "Do not show waving, walking, running, jumping, talking, working, reviewing, emotional reactions, or large gestures.",
         "Feet, base, body, or object anchor should remain planted or nearly planted.",
         "The first and last frames should be very close visually so the loop feels calm and does not pop.",
     ],
@@ -85,6 +85,7 @@ STATE_REQUIREMENTS = {
     "jumping": [
         "Show the jump through pose and vertical body position only: anticipation, lift, airborne peak, descent, settle.",
         "Do not draw ground shadows, contact shadows, drop shadows, oval shadows, landing marks, dust, smears, bounce pads, or motion marks under the pet.",
+        "Do not introduce new props during the jump.",
         "Keep the background outside the pet perfectly flat chroma key with no darker key-colored patches.",
     ],
     "failed": [
@@ -97,21 +98,22 @@ STATE_REQUIREMENTS = {
         "Keep the motion patient and readable, without turning it into ordinary idle or review.",
     ],
     "running": [
-        "Show the pet actively working or processing, as if running a task: focused posture, busy hands or paws, purposeful bobbing, thinking motion, tool or prop motion only if already part of the pet identity, or other non-locomotion activity.",
+        "Show the pet actively working or processing, as if running a task: focused posture, busy hands or paws, purposeful bobbing, thinking motion, tool or prop motion, or other non-locomotion activity.",
         "Do not show literal foot-running, jogging, sprinting, treadmill motion, raised knees, long steps, pumping arms, directional travel, speed lines, dust clouds, floor shadows, motion trails, or detached motion effects.",
     ],
     "review": [
         "Show review through lean, blink, narrowed eyes, head tilt, or paw/hand position.",
-        "Do not add magnifying glasses, papers, code, UI, punctuation, symbols, or other new props unless they already exist in the base pet identity.",
     ],
     "running-right": [
         "Show directional drag movement to the right through body, limb, and prop movement only.",
+        "Do not introduce new props; only props already part of the pet identity may move.",
         "The row must unmistakably face and travel right.",
         "The movement cadence must alternate visibly across the 8 frames instead of repeating one nearly static stride.",
         "Do not draw speed lines, dust clouds, floor shadows, motion trails, or detached motion effects.",
     ],
     "running-left": [
         "Show directional drag movement to the left through body, limb, and prop movement only.",
+        "Do not introduce new props; only props already part of the pet identity may move.",
         "The row must unmistakably face and travel left.",
         "The movement cadence must alternate visibly across the 8 frames instead of repeating one nearly static stride.",
         "Do not draw speed lines, dust clouds, floor shadows, motion trails, or detached motion effects.",

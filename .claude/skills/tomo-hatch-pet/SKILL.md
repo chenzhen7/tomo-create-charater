@@ -84,7 +84,7 @@ Up to 10 visual jobs: 1 base plus 9 rows (`idle`, `running-right`, `running-left
 
 ### Look Rules
 
-- Compact whole-body silhouette readable at pet size; consistent face, proportions, palette, materials, and props across rows. `auto`, `pixel`, `plush`, `clay`, `sticker`, `flat-vector`, `3d-toy`, `painterly`, and `brand-inspired` styles are all acceptable.
+- Compact whole-body silhouette readable at pet size; consistent face, proportions, palette, and materials across rows. `auto`, `pixel`, `plush`, `clay`, `sticker`, `flat-vector`, `3d-toy`, `painterly`, and `brand-inspired` styles are all acceptable.
 - Every generated pixel must be sprite or cleanly removable chroma key. Reject accidental 100%-transparent holes inside a filled body; the atlas validator will not catch those.
 - Effects are allowed only when state-relevant, attached to the sprite, inside its slot, opaque, and non-key-colored. Reject detached marks, shadows, glows, motion trails, and symbol-like artifacts.
 - State and effects rules live in each generated row prompt; do not override or re-specify them.
