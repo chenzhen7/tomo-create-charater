@@ -3,7 +3,7 @@
 
 Used only when the user explicitly opts into CLI fallback mode, or when explicit
 
-Defaults to the largest supported size (3840x2160) and `high` quality.
+Defaults to `gpt-image-2.5-sunburst`, the largest supported size (3840x2160), and `high` quality.
 Model names and quality values are passed through unchanged; the endpoint
 decides which models and parameter combinations it supports.
 """
@@ -23,7 +23,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from io import BytesIO
 
-DEFAULT_MODEL = "gpt-image-2"
+DEFAULT_MODEL = "gpt-image-2.5-sunburst"
 DEFAULT_SIZE = "3840x2160"
 DEFAULT_QUALITY = "high"
 DEFAULT_OUTPUT_FORMAT = "png"

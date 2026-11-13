@@ -35,7 +35,7 @@ All visual generation goes through the generation layer, exactly one of:
   --out /absolute/path/to/output.png
 ```
 
-It defaults to `high` quality at `3840x2160`; override `--quality` / `--size` only when a job needs something else.
+It defaults to `gpt-image-2.5-sunburst`, `high` quality at `3840x2160`; override `--model` / `--quality` / `--size` only when a job needs something else.
 
 **Agent built-in (explicit user choice only)** — some agents ship their own image tool. Use it only when the user explicitly chooses it, then follow that tool's documentation.
 
