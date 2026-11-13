@@ -76,7 +76,7 @@ When the user gives only a brand, company, product, or prospect name, run one li
 
 ### Geometry
 
-The cell is `192N x 208N` for an integer scale `N`, hard-capped at **3** (`MAX_CELL_SCALE`; larger atlases exhaust memory in the despill pass). `--cell-scale` defaults to 3, giving a 4608x5616 atlas. Each state generates as one image on a two-row grid — 4x2 for 8 frames, 3x2 for 5–6, 2x2 for 4 — with row-major reading order; a 5-frame row leaves one slot empty. The atlas is always 8 columns x 9 rows.
+The cell is `192N x 208N` for an integer scale `N`, hard-capped at **3** (`MAX_CELL_SCALE`; larger atlases exhaust memory in the despill pass). Always pass `--cell-scale 3` (4608x5616 atlas); lower it only when the user explicitly asks. Each state generates as one image on a two-row grid — 4x2 for 8 frames, 3x2 for 5–6, 2x2 for 4 — with row-major reading order; a 5-frame row leaves one slot empty. The atlas is always 8 columns x 9 rows.
 
 ### Jobs And Provenance
 
@@ -284,7 +284,7 @@ A repair reuses `generated/<job-id>.png`, so pass `--force` or point `--out` at 
 
 ## Acceptance Criteria
 
-- Final atlas is PNG or WebP, 8 columns x 9 rows, one integer-scaled cell `192N x 208N` (default N=3 → 4608x5616; max N=3).
+- Final atlas is PNG or WebP, 8 columns x 9 rows, one integer-scaled cell `192N x 208N` (use N=3 → 4608x5616; max N=3).
 - Despill report has `ok: true` and the packaged spritesheet passes `validate_atlas.py` with the run's chroma key.
 - Used cells are non-empty; unused cells are fully transparent.
 - Row/frame counts match `pet_request.json`.
