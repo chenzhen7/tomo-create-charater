@@ -8,13 +8,8 @@ from pathlib import Path
 
 from PIL import Image
 
-COLUMNS = 8
-ROWS = 9
-CELL_WIDTH = 192
-CELL_HEIGHT = 208
-ATLAS_WIDTH = COLUMNS * CELL_WIDTH
-ATLAS_HEIGHT = ROWS * CELL_HEIGHT
-ATLAS_ASPECT_RATIO = ATLAS_WIDTH / ATLAS_HEIGHT
+import pet_geometry as geo
+
 ROW_SPECS = [
     ("idle", 0, 6),
     ("running-right", 1, 8),
@@ -57,44 +52,61 @@ def find_row_frames(root: Path, state: str, row_index: int) -> list[Path]:
     return sorted(set(files))
 
 
-def paste_centered(atlas: Image.Image, source: Image.Image, row: int, column: int) -> None:
+def frame_cell_size(root: Path) -> tuple[int, int]:
+    for state, row, _frame_count in ROW_SPECS:
+        files = find_row_frames(root, state, row)
+        if files:
+            with Image.open(files[0]) as opened:
+                return opened.size
+    raise SystemExit(f"no frame images found under {root}")
+
+
+def paste_centered(
+    atlas: Image.Image,
+    source: Image.Image,
+    row: int,
+    column: int,
+    cell_width: int,
+    cell_height: int,
+) -> None:
     frame = source.convert("RGBA")
-    if frame.size != (CELL_WIDTH, CELL_HEIGHT):
-        frame.thumbnail((CELL_WIDTH, CELL_HEIGHT), Image.Resampling.LANCZOS)
-    left = column * CELL_WIDTH + (CELL_WIDTH - frame.width) // 2
-    top = row * CELL_HEIGHT + (CELL_HEIGHT - frame.height) // 2
-    atlas.alpha_composite(frame, (left, top))
+    if frame.size != (cell_width, cell_height):
+        raise SystemExit(
+            f"frame {source} is {frame.width}x{frame.height}; expected the extracted "
+            f"cell {cell_width}x{cell_height}"
+        )
+    atlas.alpha_composite(frame, (column * cell_width, row * cell_height))
 
 
-def compose_from_source_atlas(path: Path, resize_source: bool) -> Image.Image:
+def compose_from_source_atlas(path: Path) -> Image.Image:
     with Image.open(path) as opened:
         source = opened.convert("RGBA")
-    if source.size != (ATLAS_WIDTH, ATLAS_HEIGHT):
-        if not resize_source:
-            raise SystemExit(
-                f"source atlas must be {ATLAS_WIDTH}x{ATLAS_HEIGHT}; got {source.width}x{source.height}"
-            )
-        source_ratio = source.width / source.height
-        if abs(source_ratio - ATLAS_ASPECT_RATIO) > 0.02:
-            raise SystemExit(
-                "refusing to resize source atlas because its aspect ratio does not match "
-                f"the Codex atlas ratio {ATLAS_ASPECT_RATIO:.3f}; got {source_ratio:.3f}. "
-                "Generate exact atlas dimensions or use --frames-root."
-            )
-        source = source.resize((ATLAS_WIDTH, ATLAS_HEIGHT), Image.Resampling.LANCZOS)
-
-    atlas = Image.new("RGBA", (ATLAS_WIDTH, ATLAS_HEIGHT), (0, 0, 0, 0))
+    cell = geo.derive_cell_from_atlas(source.width, source.height, geo.ROWS)
+    if cell is None:
+        raise SystemExit(
+            f"source atlas must be 8 columns x 9 rows with a 192:208 cell ratio; "
+            f"got {source.width}x{source.height}"
+        )
+    cell_width, cell_height = cell
+    atlas = Image.new(
+        "RGBA", (geo.COLUMNS * cell_width, geo.ROWS * cell_height), (0, 0, 0, 0)
+    )
     for _state, row, frame_count in ROW_SPECS:
         for column in range(frame_count):
-            left = column * CELL_WIDTH
-            top = row * CELL_HEIGHT
-            cell = source.crop((left, top, left + CELL_WIDTH, top + CELL_HEIGHT))
-            atlas.alpha_composite(cell, (left, top))
+            left = column * cell_width
+            top = row * cell_height
+            cell_image = source.crop(
+                (left, top, left + cell_width, top + cell_height)
+            )
+            atlas.alpha_composite(cell_image, (left, top))
     return atlas
 
 
 def compose_from_frames(root: Path) -> Image.Image:
-    atlas = Image.new("RGBA", (ATLAS_WIDTH, ATLAS_HEIGHT), (0, 0, 0, 0))
+    cell_width, cell_height = frame_cell_size(root)
+    atlas = Image.new(
+        "RGBA", (geo.COLUMNS * cell_width, geo.ROWS * cell_height), (0, 0, 0, 0)
+    )
     for state, row, frame_count in ROW_SPECS:
         files = find_row_frames(root, state, row)
         if len(files) < frame_count:
@@ -103,7 +115,9 @@ def compose_from_frames(root: Path) -> Image.Image:
             )
         for column, frame_path in enumerate(files[:frame_count]):
             with Image.open(frame_path) as frame:
-                paste_centered(atlas, frame, row, column)
+                paste_centered(
+                    atlas, frame, row, column, cell_width, cell_height
+                )
     return atlas
 
 
@@ -141,17 +155,10 @@ def main() -> None:
     source.add_argument("--frames-root")
     parser.add_argument("--output", required=True)
     parser.add_argument("--webp-output")
-    parser.add_argument(
-        "--resize-source",
-        action="store_true",
-        help="Resize a lower-resolution source atlas only when it already has the Codex atlas aspect ratio.",
-    )
     args = parser.parse_args()
 
     if args.source_atlas:
-        atlas = compose_from_source_atlas(
-            Path(args.source_atlas).expanduser().resolve(), args.resize_source
-        )
+        atlas = compose_from_source_atlas(Path(args.source_atlas).expanduser().resolve())
     else:
         atlas = compose_from_frames(Path(args.frames_root).expanduser().resolve())
 

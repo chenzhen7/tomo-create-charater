@@ -8,10 +8,8 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
-COLUMNS = 8
-ROWS = 9
-CELL_WIDTH = 192
-CELL_HEIGHT = 208
+import pet_geometry as geo
+
 LABEL_HEIGHT = 22
 ROW_NAMES = [
     "idle",
@@ -54,19 +52,23 @@ def main() -> None:
 
     with Image.open(Path(args.atlas).expanduser().resolve()) as opened:
         atlas = opened.convert("RGBA")
-    rows = atlas.height // CELL_HEIGHT
-    if atlas.width != COLUMNS * CELL_WIDTH or rows != 9:
-        raise SystemExit(f"atlas must be 1536x1872; got {atlas.width}x{atlas.height}")
+    cell = geo.derive_cell_from_atlas(atlas.width, atlas.height, geo.ROWS)
+    if cell is None:
+        raise SystemExit(
+            f"atlas must be {geo.COLUMNS} columns x {geo.ROWS} rows with a 192:208 "
+            f"cell ratio; got {atlas.width}x{atlas.height}"
+        )
+    cell_width, cell_height = cell
 
-    cell_w = max(1, round(CELL_WIDTH * args.scale))
-    cell_h = max(1, round(CELL_HEIGHT * args.scale))
-    width = COLUMNS * cell_w
-    height = rows * (cell_h + LABEL_HEIGHT)
+    cell_w = max(1, round(cell_width * args.scale))
+    cell_h = max(1, round(cell_height * args.scale))
+    width = geo.COLUMNS * cell_w
+    height = geo.ROWS * (cell_h + LABEL_HEIGHT)
     sheet = Image.new("RGB", (width, height), "#f7f7f7")
     draw = ImageDraw.Draw(sheet)
     font = ImageFont.load_default()
 
-    for row in range(rows):
+    for row in range(geo.ROWS):
         y = row * (cell_h + LABEL_HEIGHT)
         draw.rectangle((0, y, width, y + LABEL_HEIGHT - 1), fill="#111111")
         draw.text((6, y + 5), f"row {row}: {ROW_NAMES[row]}", fill="#ffffff", font=font)
@@ -76,13 +78,13 @@ def main() -> None:
             fill="#ffffff",
             font=font,
         )
-        for column in range(COLUMNS):
+        for column in range(geo.COLUMNS):
             crop = atlas.crop(
                 (
-                    column * CELL_WIDTH,
-                    row * CELL_HEIGHT,
-                    (column + 1) * CELL_WIDTH,
-                    (row + 1) * CELL_HEIGHT,
+                    column * cell_width,
+                    row * cell_height,
+                    (column + 1) * cell_width,
+                    (row + 1) * cell_height,
                 )
             )
             crop = crop.resize((cell_w, cell_h), Image.Resampling.LANCZOS)

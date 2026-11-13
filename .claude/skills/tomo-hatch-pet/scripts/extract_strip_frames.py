@@ -11,8 +11,8 @@ from pathlib import Path
 
 from PIL import Image
 
-CELL_WIDTH = 192
-CELL_HEIGHT = 208
+import pet_geometry as geo
+
 ROW_FRAME_COUNTS = {
     "idle": 6,
     "running-right": 8,
@@ -42,16 +42,34 @@ def parse_hex_color(value: str) -> tuple[int, int, int]:
     return tuple(int(value[index : index + 2], 16) for index in (1, 3, 5))
 
 
-def load_chroma_key(decoded_dir: Path, override: str | None) -> tuple[int, int, int]:
+def load_request(decoded_dir: Path) -> dict[str, object]:
+    return geo.find_request(decoded_dir)
+
+
+def load_chroma_key(
+    request: dict[str, object], override: str | None
+) -> tuple[int, int, int]:
     if override:
         return parse_hex_color(override)
-    request_path = decoded_dir.parent / "pet_request.json"
-    if request_path.is_file():
-        request = json.loads(request_path.read_text(encoding="utf-8"))
-        chroma_key = request.get("chroma_key")
-        if isinstance(chroma_key, dict) and isinstance(chroma_key.get("hex"), str):
-            return parse_hex_color(chroma_key["hex"])
+    chroma_key = request.get("chroma_key")
+    if isinstance(chroma_key, dict) and isinstance(chroma_key.get("hex"), str):
+        return parse_hex_color(chroma_key["hex"])
     return parse_hex_color("#00FF00")
+
+
+def resolve_cell_scale(request: dict[str, object], override: int | None) -> int:
+    if override is not None:
+        if override < 1:
+            raise SystemExit("--cell-scale must be greater than or equal to 1")
+        return override
+    return geo.request_cell_scale(request) or 1
+
+
+def resolve_grid(
+    request: dict[str, object], state: str, frame_count: int
+) -> tuple[int, int]:
+    # Old run folders have no grid metadata; keep their original 1xN behaviour.
+    return geo.request_row_grid(request, state) or (frame_count, 1)
 
 
 def color_distance(
@@ -78,43 +96,47 @@ def remove_chroma_background(
     return rgba
 
 
-def fit_to_cell(image: Image.Image) -> Image.Image:
+def fit_to_cell(image: Image.Image, cell_width: int, cell_height: int) -> Image.Image:
     bbox = image.getbbox()
-    target = Image.new("RGBA", (CELL_WIDTH, CELL_HEIGHT), (0, 0, 0, 0))
+    target = Image.new("RGBA", (cell_width, cell_height), (0, 0, 0, 0))
     if bbox is None:
         return target
 
     sprite = image.crop(bbox)
-    max_width = CELL_WIDTH - 10
-    max_height = CELL_HEIGHT - 10
+    margin = max(0, round(10 * cell_width / geo.BASE_CELL_WIDTH))
+    max_width = cell_width - margin
+    max_height = cell_height - margin
     scale = min(max_width / sprite.width, max_height / sprite.height, 1.0)
     if scale != 1.0:
         sprite = sprite.resize(
             (max(1, round(sprite.width * scale)), max(1, round(sprite.height * scale))),
             Image.Resampling.LANCZOS,
         )
-    left = (CELL_WIDTH - sprite.width) // 2
-    top = (CELL_HEIGHT - sprite.height) // 2
+    left = (cell_width - sprite.width) // 2
+    top = (cell_height - sprite.height) // 2
     target.alpha_composite(sprite, (left, top))
     return target
 
 
-def fit_viewport_to_cell(image: Image.Image) -> Image.Image:
-    target = Image.new("RGBA", (CELL_WIDTH, CELL_HEIGHT), (0, 0, 0, 0))
+def fit_viewport_to_cell(
+    image: Image.Image, cell_width: int, cell_height: int
+) -> Image.Image:
+    target = Image.new("RGBA", (cell_width, cell_height), (0, 0, 0, 0))
     if image.getbbox() is None:
         return target
 
     viewport = image.copy()
-    max_width = CELL_WIDTH - 10
-    max_height = CELL_HEIGHT - 10
+    margin = max(0, round(10 * cell_width / geo.BASE_CELL_WIDTH))
+    max_width = cell_width - margin
+    max_height = cell_height - margin
     scale = min(max_width / viewport.width, max_height / viewport.height, 1.0)
     if scale != 1.0:
         viewport = viewport.resize(
             (max(1, round(viewport.width * scale)), max(1, round(viewport.height * scale))),
             Image.Resampling.LANCZOS,
         )
-    left = (CELL_WIDTH - viewport.width) // 2
-    top = (CELL_HEIGHT - viewport.height) // 2
+    left = (cell_width - viewport.width) // 2
+    top = (cell_height - viewport.height) // 2
     target.alpha_composite(viewport, (left, top))
     return target
 
@@ -175,6 +197,7 @@ def connected_components(image: Image.Image) -> list[dict[str, object]]:
                 "area": len(pixels),
                 "bbox": (min_x, min_y, max_x + 1, max_y + 1),
                 "center_x": (min_x + max_x + 1) / 2,
+                "center_y": (min_y + max_y + 1) / 2,
             }
         )
 
@@ -206,7 +229,11 @@ def component_group_image(
 def component_frame_groups(
     strip: Image.Image,
     frame_count: int,
+    grid_columns: int,
+    grid_rows: int,
 ) -> list[list[dict[str, object]]] | None:
+    if grid_columns < 1 or grid_rows < 1 or grid_columns * grid_rows < frame_count:
+        return None
     components = connected_components(strip)
     if not components:
         return None
@@ -227,10 +254,18 @@ def component_frame_groups(
     if len(seeds) < frame_count:
         return None
 
-    seeds = sorted(
-        sorted(seeds, key=lambda component: component["area"], reverse=True)[:frame_count],
-        key=lambda component: component["center_x"],
-    )
+    seeds = sorted(seeds, key=lambda component: component["area"], reverse=True)[:frame_count]
+    if grid_rows <= 1:
+        seeds = sorted(seeds, key=lambda component: component["center_x"])
+    else:
+        row_height = strip.height / grid_rows
+        seeds = sorted(
+            seeds,
+            key=lambda component: (
+                min(grid_rows - 1, max(0, int(component["center_y"] / row_height))),
+                component["center_x"],
+            ),
+        )
     seed_ids = {id(seed) for seed in seeds}
     groups: list[list[dict[str, object]]] = [[seed] for seed in seeds]
 
@@ -239,18 +274,31 @@ def component_frame_groups(
             continue
         nearest_index = min(
             range(len(seeds)),
-            key=lambda index: abs(seeds[index]["center_x"] - component["center_x"]),
+            key=lambda index: (
+                (seeds[index]["center_x"] - component["center_x"]) ** 2
+                + (seeds[index]["center_y"] - component["center_y"]) ** 2
+            ),
         )
         groups[nearest_index].append(component)
 
     return groups
 
 
-def extract_component_frames(strip: Image.Image, frame_count: int) -> list[Image.Image] | None:
-    groups = component_frame_groups(strip, frame_count)
+def extract_component_frames(
+    strip: Image.Image,
+    frame_count: int,
+    cell_width: int,
+    cell_height: int,
+    grid_columns: int,
+    grid_rows: int,
+) -> list[Image.Image] | None:
+    groups = component_frame_groups(strip, frame_count, grid_columns, grid_rows)
     if groups is None:
         return None
-    return [fit_to_cell(component_group_image(strip, group)) for group in groups]
+    return [
+        fit_to_cell(component_group_image(strip, group), cell_width, cell_height)
+        for group in groups
+    ]
 
 
 def component_bounds(components: list[dict[str, object]]) -> tuple[int, int, int, int]:
@@ -262,19 +310,58 @@ def component_bounds(components: list[dict[str, object]]) -> tuple[int, int, int
     )
 
 
-def extract_slot_frames(strip: Image.Image, frame_count: int) -> list[Image.Image]:
-    slot_width = strip.width / frame_count
+def extract_slot_frames(
+    strip: Image.Image,
+    frame_count: int,
+    cell_width: int,
+    cell_height: int,
+    grid_columns: int,
+    grid_rows: int,
+) -> list[Image.Image]:
     frames = []
-    for index in range(frame_count):
-        left = round(index * slot_width)
-        right = round((index + 1) * slot_width)
-        crop = strip.crop((left, 0, right, strip.height))
-        frames.append(fit_to_cell(crop))
+    if grid_rows <= 1:
+        slot_width = strip.width / frame_count
+        for index in range(frame_count):
+            left = round(index * slot_width)
+            right = round((index + 1) * slot_width)
+            crop = strip.crop((left, 0, right, strip.height))
+            frames.append(fit_to_cell(crop, cell_width, cell_height))
+        return frames
+
+    slot_width = strip.width / grid_columns
+    slot_height = strip.height / grid_rows
+    for column, row in geo.slot_positions(frame_count, grid_columns, grid_rows):
+        left = round(column * slot_width)
+        right = round((column + 1) * slot_width)
+        top = round(row * slot_height)
+        bottom = round((row + 1) * slot_height)
+        crop = strip.crop((left, top, right, bottom))
+        frames.append(fit_to_cell(crop, cell_width, cell_height))
     return frames
 
 
-def extract_stable_slot_frames(strip: Image.Image, frame_count: int) -> list[Image.Image]:
-    groups = component_frame_groups(strip, frame_count)
+def extract_stable_slot_frames(
+    strip: Image.Image,
+    frame_count: int,
+    cell_width: int,
+    cell_height: int,
+    grid_columns: int,
+    grid_rows: int,
+) -> list[Image.Image]:
+    if grid_rows > 1:
+        # Stable-slots was designed for a single horizontal row. On a 2D grid,
+        # use the same deterministic slot crop; component extraction stays the
+        # default and the caller records this method for review.
+        return extract_slot_frames(
+            strip,
+            frame_count,
+            cell_width,
+            cell_height,
+            grid_columns,
+            grid_rows,
+        )
+
+    groups = component_frame_groups(strip, frame_count, grid_columns, grid_rows)
     padding = 4
     if groups is not None:
         bboxes = [component_bounds(group) for group in groups]
@@ -293,13 +380,14 @@ def extract_stable_slot_frames(strip: Image.Image, frame_count: int) -> list[Ima
             )
             left = (viewport_width - grouped.width) // 2
             viewport.alpha_composite(grouped, (left, grouped_top - shared_top))
-            frames.append(fit_viewport_to_cell(viewport))
+            frames.append(fit_viewport_to_cell(viewport, cell_width, cell_height))
         return frames
 
     bbox = strip.getbbox()
     if bbox is None:
         return [
-            Image.new("RGBA", (CELL_WIDTH, CELL_HEIGHT), (0, 0, 0, 0)) for _ in range(frame_count)
+            Image.new("RGBA", (cell_width, cell_height), (0, 0, 0, 0))
+            for _ in range(frame_count)
         ]
 
     shared_top = max(0, bbox[1] - padding)
@@ -310,7 +398,7 @@ def extract_stable_slot_frames(strip: Image.Image, frame_count: int) -> list[Ima
         left = round(index * slot_width)
         right = round((index + 1) * slot_width)
         crop = strip.crop((left, shared_top, right, shared_bottom))
-        frames.append(fit_viewport_to_cell(crop))
+        frames.append(fit_viewport_to_cell(crop, cell_width, cell_height))
     return frames
 
 
@@ -321,6 +409,10 @@ def extract_state(
     chroma_key: tuple[int, int, int],
     threshold: float,
     method: str,
+    cell_width: int,
+    cell_height: int,
+    grid_columns: int,
+    grid_rows: int,
 ) -> dict[str, object]:
     frame_count = ROW_FRAME_COUNTS[state]
     with Image.open(strip_path) as opened:
@@ -332,18 +424,41 @@ def extract_state(
     frames = None
     used_method = method
     if method in {"auto", "components"}:
-        frames = extract_component_frames(strip, frame_count)
+        frames = extract_component_frames(
+            strip,
+            frame_count,
+            cell_width,
+            cell_height,
+            grid_columns,
+            grid_rows,
+        )
         if frames is None and method == "components":
-            raise SystemExit(f"could not find {frame_count} sprite components in {strip_path}")
+            raise SystemExit(
+                f"could not find {frame_count} sprite components in {strip_path}"
+            )
         if frames is not None:
             used_method = "components"
 
     if frames is None:
         if method == "stable-slots":
-            frames = extract_stable_slot_frames(strip, frame_count)
+            frames = extract_stable_slot_frames(
+                strip,
+                frame_count,
+                cell_width,
+                cell_height,
+                grid_columns,
+                grid_rows,
+            )
             used_method = "stable-slots"
         else:
-            frames = extract_slot_frames(strip, frame_count)
+            frames = extract_slot_frames(
+                strip,
+                frame_count,
+                cell_width,
+                cell_height,
+                grid_columns,
+                grid_rows,
+            )
             used_method = "slots"
 
     outputs = []
@@ -351,7 +466,15 @@ def extract_state(
         output = state_dir / f"{index:02d}.png"
         frame.save(output)
         outputs.append(str(output))
-    return {"state": state, "frames": outputs, "method": used_method}
+    return {
+        "state": state,
+        "frames": outputs,
+        "method": used_method,
+        "cell_width": cell_width,
+        "cell_height": cell_height,
+        "grid_columns": grid_columns,
+        "grid_rows": grid_rows,
+    }
 
 
 def main() -> None:
@@ -362,6 +485,11 @@ def main() -> None:
     parser.add_argument("--chroma-key", help="Override chroma key as #RRGGBB.")
     parser.add_argument("--key-threshold", type=float, default=96.0)
     parser.add_argument(
+        "--cell-scale",
+        type=int,
+        help="Override the run's atlas cell scale N (defaults to pet_request.json).",
+    )
+    parser.add_argument(
         "--method",
         choices=("auto", "components", "slots", "stable-slots"),
         default="auto",
@@ -371,7 +499,10 @@ def main() -> None:
 
     decoded_dir = Path(args.decoded_dir).expanduser().resolve()
     output_dir = Path(args.output_dir).expanduser().resolve()
-    chroma_key = load_chroma_key(decoded_dir, args.chroma_key)
+    request = load_request(decoded_dir)
+    chroma_key = load_chroma_key(request, args.chroma_key)
+    cell_scale = resolve_cell_scale(request, args.cell_scale)
+    cell_width, cell_height = geo.cell_size(cell_scale)
     states = parse_states(args.states)
     manifest_path = output_dir / "frames-manifest.json"
     # The workflow extracts and inspects one row at a time as each row finishes
@@ -389,6 +520,9 @@ def main() -> None:
         strip_path = decoded_dir / f"{state}.png"
         if not strip_path.is_file():
             raise SystemExit(f"missing generated strip for {state}: {strip_path}")
+        grid_columns, grid_rows = resolve_grid(
+            request, state, ROW_FRAME_COUNTS[state]
+        )
         recorded[state] = extract_state(
             strip_path,
             state,
@@ -396,6 +530,10 @@ def main() -> None:
             chroma_key,
             args.key_threshold,
             args.method,
+            cell_width,
+            cell_height,
+            grid_columns,
+            grid_rows,
         )
 
     manifest = [
@@ -413,6 +551,9 @@ def main() -> None:
                     "rgb": list(chroma_key),
                     "threshold": args.key_threshold,
                 },
+                "cell_scale": cell_scale,
+                "cell_width": cell_width,
+                "cell_height": cell_height,
                 "rows": manifest,
             },
             indent=2,

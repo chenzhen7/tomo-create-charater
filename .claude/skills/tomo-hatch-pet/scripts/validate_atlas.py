@@ -12,12 +12,10 @@ from pathlib import Path
 
 from PIL import Image, ImageFilter
 
-COLUMNS = 8
-ROWS = 9
-CELL_WIDTH = 192
-CELL_HEIGHT = 208
-ATLAS_WIDTH = COLUMNS * CELL_WIDTH
-ATLAS_HEIGHT = ROWS * CELL_HEIGHT
+import pet_geometry as geo
+
+COLUMNS = geo.COLUMNS
+ROWS = geo.ROWS
 ROW_BY_INDEX = {
     0: ("idle", 6),
     1: ("running-right", 8),
@@ -149,10 +147,22 @@ def main() -> None:
         print(json.dumps(result, indent=2))
         raise SystemExit(1) from exc
 
-    if image.width != ATLAS_WIDTH or image.height != ATLAS_HEIGHT:
+    cell = geo.derive_cell_from_atlas(image.width, image.height, ROWS)
+    if cell is None:
         errors.append(
-            f"expected {ATLAS_WIDTH}x{ATLAS_HEIGHT}, got {image.width}x{image.height}"
+            f"expected {COLUMNS} columns x {ROWS} rows with a 192:208 cell ratio; "
+            f"got {image.width}x{image.height}"
         )
+        cell_width = max(1, image.width // COLUMNS)
+        cell_height = max(1, image.height // ROWS)
+    else:
+        cell_width, cell_height = cell
+    pixel_scale = (cell_width * cell_height) / (
+        geo.BASE_CELL_WIDTH * geo.BASE_CELL_HEIGHT
+    )
+    min_used_pixels = round(args.min_used_pixels * pixel_scale)
+    max_chroma_leak_pixels = round(args.max_chroma_leak_pixels * pixel_scale)
+    max_chroma_fringe_pixels = round(args.max_chroma_fringe_pixels * pixel_scale)
 
     if source_format not in {"PNG", "WEBP"}:
         errors.append(f"expected PNG or WebP, got {source_format}")
@@ -162,14 +172,16 @@ def main() -> None:
 
     # A wrongly-sized atlas already recorded a dimension error above; clamp so the
     # per-cell loop cannot index past the known row table and crash the report.
-    row_count = min(image.height // CELL_HEIGHT, len(ROW_BY_INDEX))
+    row_count = min(image.height // cell_height, len(ROW_BY_INDEX))
     for row_index in range(row_count):
         state, frame_count = ROW_BY_INDEX[row_index]
         for column_index in range(COLUMNS):
-            left = column_index * CELL_WIDTH
-            top = row_index * CELL_HEIGHT
-            cell = image.crop((left, top, left + CELL_WIDTH, top + CELL_HEIGHT))
-            nontransparent = alpha_nonzero_count(cell)
+            left = column_index * cell_width
+            top = row_index * cell_height
+            cell_image = image.crop(
+                (left, top, left + cell_width, top + cell_height)
+            )
+            nontransparent = alpha_nonzero_count(cell_image)
             used = column_index < frame_count
             cell_info = {
                 "state": state,
@@ -179,13 +191,13 @@ def main() -> None:
                 "nontransparent_pixels": nontransparent,
             }
             chroma_leak_pixels = opaque_chroma_key_count(
-                cell,
+                cell_image,
                 chroma_key,
                 args.chroma_leak_threshold,
             )
             cell_info["opaque_chroma_key_pixels"] = chroma_leak_pixels
             chroma_fringe_pixels = chroma_fringe_count(
-                cell,
+                cell_image,
                 chroma_key=chroma_key,
                 distance_threshold=args.chroma_fringe_threshold,
                 edge_radius=args.chroma_fringe_edge_radius,
@@ -193,11 +205,11 @@ def main() -> None:
             )
             cell_info["chroma_fringe_pixels"] = chroma_fringe_pixels
             cells.append(cell_info)
-            if used and nontransparent < args.min_used_pixels:
+            if used and nontransparent < min_used_pixels:
                 errors.append(
                     f"{state} row {row_index} column {column_index} is empty or too sparse ({nontransparent} pixels)"
                 )
-            if used and chroma_leak_pixels > args.max_chroma_leak_pixels:
+            if used and chroma_leak_pixels > max_chroma_leak_pixels:
                 message = (
                     f"{state} row {row_index} column {column_index} has {chroma_leak_pixels} "
                     f"opaque pixels near chroma key {args.chroma_key}; this usually means "
@@ -207,7 +219,7 @@ def main() -> None:
                     warnings.append(message)
                 else:
                     errors.append(message)
-            if used and chroma_fringe_pixels > args.max_chroma_fringe_pixels:
+            if used and chroma_fringe_pixels > max_chroma_fringe_pixels:
                 message = (
                     f"{state} row {row_index} column {column_index} has {chroma_fringe_pixels} "
                     f"visible edge pixels contaminated by chroma key {args.chroma_key}"
@@ -216,7 +228,7 @@ def main() -> None:
                     warnings.append(message)
                 else:
                     errors.append(message)
-            if used and nontransparent > CELL_WIDTH * CELL_HEIGHT * args.near_opaque_threshold:
+            if used and nontransparent > cell_width * cell_height * args.near_opaque_threshold:
                 near_opaque_used_cells[f"{state} row {row_index}"].append(column_index)
             if not used and nontransparent != 0:
                 errors.append(
@@ -234,7 +246,7 @@ def main() -> None:
             errors.append(message)
 
     alpha_count = alpha_nonzero_count(image)
-    if alpha_count == ATLAS_WIDTH * ATLAS_HEIGHT:
+    if alpha_count == image.width * image.height:
         message = "atlas is fully opaque; custom pets require a transparent sprite background"
         if args.allow_opaque:
             warnings.append(message)
@@ -254,6 +266,8 @@ def main() -> None:
         "mode": source_mode,
         "columns": COLUMNS,
         "rows": row_count,
+        "cell_width": cell_width,
+        "cell_height": cell_height,
         "width": image.width,
         "height": image.height,
         "transparent_rgb_residue_pixels": transparent_rgb_residue,

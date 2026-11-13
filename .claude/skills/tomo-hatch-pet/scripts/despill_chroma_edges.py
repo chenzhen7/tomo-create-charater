@@ -10,8 +10,8 @@ from pathlib import Path
 
 from PIL import Image, ImageFilter
 
-CELL_WIDTH = 192
-CELL_HEIGHT = 208
+import pet_geometry as geo
+
 ALGORITHM = "edge-local-chroma-spill-suppression"
 
 
@@ -41,19 +41,21 @@ def edge_band(alpha: Image.Image, radius: int) -> list[bool]:
     return [is_visible and nearby > 0 for is_visible, nearby in zip(visible, expanded.getdata())]
 
 
-def atlas_edge_band(alpha: Image.Image, radius: int) -> list[bool]:
+def atlas_edge_band(
+    alpha: Image.Image, radius: int, cell_width: int, cell_height: int
+) -> list[bool]:
     width, height = alpha.size
     boundary = edge_band(alpha, radius)
-    if width % CELL_WIDTH or height % CELL_HEIGHT:
+    if width % cell_width or height % cell_height:
         return boundary
 
-    for top in range(0, height, CELL_HEIGHT):
-        for left in range(0, width, CELL_WIDTH):
-            cell = alpha.crop((left, top, left + CELL_WIDTH, top + CELL_HEIGHT))
+    for top in range(0, height, cell_height):
+        for left in range(0, width, cell_width):
+            cell = alpha.crop((left, top, left + cell_width, top + cell_height))
             for index, is_boundary in enumerate(edge_band(cell, radius)):
                 if is_boundary:
-                    x = left + index % CELL_WIDTH
-                    y = top + index // CELL_WIDTH
+                    x = left + index % cell_width
+                    y = top + index // cell_width
                     boundary[y * width + x] = True
     return boundary
 
@@ -97,6 +99,8 @@ def suppress_boundary_spill(
     edge_radius: int,
     spill_tolerance: float,
     minimum_saturation: float,
+    cell_width: int,
+    cell_height: int,
 ) -> tuple[list[tuple[int, int, int, int]], list[bool]]:
     width, height = size
     colors_linear = [
@@ -118,8 +122,6 @@ def suppress_boundary_spill(
     filled = [pixel[3] > 0 and not is_pending for pixel, is_pending in zip(pixels, pending)]
     output = pixels.copy()
     suppressed = [False] * len(pixels)
-    cell_width = CELL_WIDTH if width % CELL_WIDTH == 0 else width
-    cell_height = CELL_HEIGHT if height % CELL_HEIGHT == 0 else height
 
     for _ in range(edge_radius * 2 + 1):
         updates: list[tuple[int, tuple[float, float, float]]] = []
@@ -202,9 +204,19 @@ def decontaminate_image(
         raise ValueError("minimum_saturation must not be negative")
 
     rgba = image.convert("RGBA")
-    width, _ = rgba.size
+    width, height = rgba.size
+    cell_size = geo.derive_cell_from_atlas(width, height, geo.ROWS)
+    if cell_size is None:
+        cell_width, cell_height = width, height
+    else:
+        cell_width, cell_height = cell_size
+    effective_radius = max(
+        1, round(edge_radius * cell_width / geo.BASE_CELL_WIDTH)
+    )
     source = list(rgba.getdata())
-    boundary = atlas_edge_band(rgba.getchannel("A"), edge_radius)
+    boundary = atlas_edge_band(
+        rgba.getchannel("A"), effective_radius, cell_width, cell_height
+    )
     key_linear = tuple(srgb_to_linear(channel / 255) for channel in chroma_key)
     output_pixels, suppressed = suppress_boundary_spill(
         source,
@@ -212,9 +224,11 @@ def decontaminate_image(
         boundary=boundary,
         key_linear=key_linear,
         strength=strength,
-        edge_radius=edge_radius,
+        edge_radius=effective_radius,
         spill_tolerance=spill_tolerance,
         minimum_saturation=minimum_saturation,
+        cell_width=cell_width,
+        cell_height=cell_height,
     )
     output_pixels = [
         (0, 0, 0, 0) if pixel[3] == 0 else output_pixel
@@ -230,15 +244,18 @@ def decontaminate_image(
         if output_pixel != source_pixel:
             x = index % width
             y = index // width
-            cell = f"r{y // CELL_HEIGHT}c{x // CELL_WIDTH}"
-            changed_by_cell[cell] = changed_by_cell.get(cell, 0) + 1
+            cell_label = f"r{y // cell_height}c{x // cell_width}"
+            changed_by_cell[cell_label] = changed_by_cell.get(cell_label, 0) + 1
 
     output = Image.new("RGBA", rgba.size)
     output.putdata(output_pixels)
     return output, {
         "algorithm": ALGORITHM,
         "strength": strength,
-        "edge_radius": edge_radius,
+        "edge_radius": effective_radius,
+        "requested_edge_radius": edge_radius,
+        "cell_width": cell_width,
+        "cell_height": cell_height,
         "spill_tolerance": spill_tolerance,
         "minimum_saturation": minimum_saturation,
         "changed_pixels": sum(changed_by_cell.values()),

@@ -11,8 +11,8 @@ from statistics import median
 
 from PIL import Image
 
-CELL_WIDTH = 192
-CELL_HEIGHT = 208
+import pet_geometry as geo
+
 ROW_FRAME_COUNTS = {
     "idle": 6,
     "running-right": 8,
@@ -116,14 +116,34 @@ def load_chroma_key(frames_root: Path) -> tuple[int, int, int] | None:
     return (rgb[0], rgb[1], rgb[2])
 
 
+def resolve_cell(frames_root: Path) -> tuple[int, int]:
+    request = geo.find_request(frames_root)
+    scale = geo.request_cell_scale(request)
+    if scale is not None:
+        return geo.cell_size(scale)
+    inferred = geo.infer_cell_from_frame_files(frames_root, list(ROW_FRAME_COUNTS))
+    if inferred is not None:
+        return inferred
+    return geo.BASE_CELL_WIDTH, geo.BASE_CELL_HEIGHT
+
+
 def inspect_state(
     frames_root: Path,
     state: str,
     expected_count: int,
     manifest_rows: dict[str, dict[str, object]],
     chroma_key: tuple[int, int, int] | None,
+    cell_width: int,
+    cell_height: int,
+    pixel_scale: float,
     args: argparse.Namespace,
 ) -> dict[str, object]:
+    edge_margin = max(2, round(args.edge_margin * cell_width / geo.BASE_CELL_WIDTH))
+    min_used_pixels = round(args.min_used_pixels * pixel_scale)
+    edge_pixel_threshold = round(args.edge_pixel_threshold * pixel_scale)
+    chroma_pixel_threshold = round(
+        args.chroma_adjacent_pixel_threshold * pixel_scale
+    )
     state_dir = frames_root / state
     files = frame_files(state_dir)
     row_errors: list[str] = []
@@ -155,7 +175,7 @@ def inspect_state(
             frame = opened.convert("RGBA")
         nontransparent = alpha_nonzero_count(frame)
         bbox = frame.getbbox()
-        edge_pixels = edge_alpha_count(frame, args.edge_margin)
+        edge_pixels = edge_alpha_count(frame, edge_margin)
         chroma_adjacent_pixels = chroma_adjacent_count(
             frame,
             chroma_key,
@@ -174,19 +194,20 @@ def inspect_state(
         frames.append(info)
         areas.append(nontransparent)
 
-        if frame.size != (CELL_WIDTH, CELL_HEIGHT):
+        if frame.size != (cell_width, cell_height):
             row_errors.append(
-                f"{state} frame {index:02d} is {frame.width}x{frame.height}; expected {CELL_WIDTH}x{CELL_HEIGHT}"
+                f"{state} frame {index:02d} is {frame.width}x{frame.height}; "
+                f"expected {cell_width}x{cell_height}"
             )
-        if nontransparent < args.min_used_pixels:
+        if nontransparent < min_used_pixels:
             row_errors.append(
                 f"{state} frame {index:02d} is empty or too sparse ({nontransparent} pixels)"
             )
-        if edge_pixels > args.edge_pixel_threshold:
+        if edge_pixels > edge_pixel_threshold:
             row_warnings.append(
                 f"{state} frame {index:02d} has {edge_pixels} non-transparent pixels near the cell edge"
             )
-        if chroma_adjacent_pixels > args.chroma_adjacent_pixel_threshold:
+        if chroma_adjacent_pixels > chroma_pixel_threshold:
             row_errors.append(
                 f"{state} frame {index:02d} has {chroma_adjacent_pixels} non-transparent pixels close to the chroma key"
             )
@@ -242,9 +263,23 @@ def main() -> None:
     frames_root = Path(args.frames_root).expanduser().resolve()
     manifest_rows = load_manifest(frames_root)
     chroma_key = load_chroma_key(frames_root)
+    cell_width, cell_height = resolve_cell(frames_root)
+    pixel_scale = (cell_width * cell_height) / (
+        geo.BASE_CELL_WIDTH * geo.BASE_CELL_HEIGHT
+    )
     states = parse_states(args.states)
     rows = [
-        inspect_state(frames_root, state, count, manifest_rows, chroma_key, args)
+        inspect_state(
+            frames_root,
+            state,
+            count,
+            manifest_rows,
+            chroma_key,
+            cell_width,
+            cell_height,
+            pixel_scale,
+            args,
+        )
         for state, count in ROW_FRAME_COUNTS.items()
         if state in states
     ]
@@ -253,6 +288,8 @@ def main() -> None:
     result = {
         "ok": not errors,
         "frames_root": str(frames_root),
+        "cell_width": cell_width,
+        "cell_height": cell_height,
         "states": states,
         "errors": errors,
         "warnings": warnings,

@@ -9,6 +9,8 @@ from pathlib import Path
 
 from PIL import Image
 
+import pet_geometry as geo
+
 ROW_DURATIONS = {
     "idle": [280, 110, 110, 140, 140, 320],
     "running-right": [120, 120, 120, 120, 120, 120, 120, 220],
@@ -42,8 +44,22 @@ def load_frames(frames_root: Path, state: str, expected_count: int) -> list[Imag
     return frames
 
 
-def save_preview(frames: list[Image.Image], durations: list[int], output: Path) -> None:
+def save_preview(
+    frames: list[Image.Image],
+    durations: list[int],
+    output: Path,
+    preview_width: int,
+    preview_height: int,
+) -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
+    # The atlas may be N×; previews are for watching the motion at the logical
+    # 192×208 display size, not for inspecting source detail (the contact sheet does that).
+    frames = [
+        frame
+        if frame.size == (preview_width, preview_height)
+        else frame.resize((preview_width, preview_height), Image.Resampling.LANCZOS)
+        for frame in frames
+    ]
     frames[0].save(
         output,
         save_all=True,
@@ -59,6 +75,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--frames-root", required=True)
     parser.add_argument("--output-dir", required=True)
+    parser.add_argument("--preview-width", type=int, default=geo.BASE_CELL_WIDTH)
+    parser.add_argument("--preview-height", type=int, default=geo.BASE_CELL_HEIGHT)
     args = parser.parse_args()
 
     frames_root = Path(args.frames_root).expanduser().resolve()
@@ -67,8 +85,22 @@ def main() -> None:
     for state, durations in ROW_DURATIONS.items():
         frames = load_frames(frames_root, state, len(durations))
         output = output_dir / f"{state}.gif"
-        save_preview(frames, durations, output)
-        previews.append({"state": state, "path": str(output), "frames": len(frames)})
+        save_preview(
+            frames,
+            durations,
+            output,
+            args.preview_width,
+            args.preview_height,
+        )
+        previews.append(
+            {
+                "state": state,
+                "path": str(output),
+                "frames": len(frames),
+                "width": args.preview_width,
+                "height": args.preview_height,
+            }
+        )
 
     result = {"ok": True, "output_dir": str(output_dir), "previews": previews}
     print(json.dumps(result, indent=2))

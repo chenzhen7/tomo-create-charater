@@ -13,9 +13,36 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw
 
-ATLAS = {"columns": 8, "rows": 9, "cell_width": 192, "cell_height": 208}
-ATLAS["width"] = ATLAS["columns"] * ATLAS["cell_width"]
-ATLAS["height"] = ATLAS["rows"] * ATLAS["cell_height"]
+import pet_geometry as geo
+
+
+def atlas_spec(scale: int) -> dict[str, int]:
+    cell_width, cell_height = geo.cell_size(scale)
+    return {
+        "columns": geo.COLUMNS,
+        "rows": geo.ROWS,
+        "cell_width": cell_width,
+        "cell_height": cell_height,
+        "width": geo.COLUMNS * cell_width,
+        "height": geo.ROWS * cell_height,
+    }
+
+
+def parse_generation_size(value: str) -> tuple[int, int]:
+    match = re.fullmatch(r"([1-9][0-9]*)x([1-9][0-9]*)", value.strip())
+    if not match:
+        raise SystemExit(f"invalid generation size: {value}; expected WIDTHxHEIGHT")
+    width, height = int(match.group(1)), int(match.group(2))
+    max_width, max_height = geo.MAX_GENERATION_SIZE
+    if width % 16 or height % 16:
+        raise SystemExit("generation size width and height must be multiples of 16px")
+    if max(width, height) > max_width or width * height > max_width * max_height:
+        raise SystemExit(
+            f"generation size exceeds the official maximum {max_width}x{max_height}"
+        )
+    if max(width, height) / min(width, height) > 3:
+        raise SystemExit("generation size aspect ratio must not exceed 3:1")
+    return width, height
 
 ROWS = [
     ("idle", 0, 6, "calm resting, breathing, and blinking loop"),
@@ -244,7 +271,9 @@ def infer_description(args: argparse.Namespace, reference_paths: list[Path]) -> 
     if args.pet_notes.strip():
         return sentence(f"A compact Codex pet: {args.pet_notes}")
     if args.brand_name.strip():
-        return sentence(f"A compact Codex pet inspired by {args.brand_name}")
+        # Brand names stay out of prompts: the endpoint refuses them and they risk
+        # copying protected designs.
+        return sentence("A compact original Codex pet shaped by the researched visual cues")
     if reference_paths:
         return "A compact Codex pet based on the provided reference image."
     return "A compact original Codex pet ready for animation."
@@ -256,7 +285,7 @@ def infer_pet_notes(args: argparse.Namespace, reference_paths: list[Path]) -> st
     if args.description.strip():
         return args.description.strip().rstrip(".")
     if args.brand_name.strip():
-        return f"a compact mascot inspired by {args.brand_name.strip()}"
+        return "a compact original mascot shaped by the researched visual cues"
     if reference_paths:
         return "the pet shown in the reference image(s)"
     return "a compact original Codex pet"
@@ -314,42 +343,76 @@ def draw_dashed_line(
     raise ValueError("draw_dashed_line only supports horizontal or vertical lines")
 
 
-def create_layout_guide(path: Path, state: str, frames: int) -> dict[str, object]:
-    width = frames * ATLAS["cell_width"]
-    height = ATLAS["cell_height"]
-    cell_width = ATLAS["cell_width"]
+def create_layout_guide(
+    path: Path,
+    state: str,
+    frames: int,
+    scale: int,
+    generation_size: tuple[int, int],
+) -> dict[str, object]:
+    width, height = generation_size
+    columns, rows = geo.grid_for_frames(frames)
+    if width % columns or height % rows:
+        raise SystemExit(
+            f"generation size {width}x{height} does not divide into a {columns}x{rows} grid"
+        )
+    cell_width = width // columns
+    cell_height = height // rows
+    safe_margin_x = max(
+        1, round(cell_width * LAYOUT_GUIDE_SAFE_MARGIN_X / geo.BASE_CELL_WIDTH)
+    )
+    safe_margin_y = max(
+        1, round(cell_height * LAYOUT_GUIDE_SAFE_MARGIN_Y / geo.BASE_CELL_HEIGHT)
+    )
+    atlas_cell_width, atlas_cell_height = geo.cell_size(scale)
+    dash = max(8, round(8 * cell_width / geo.BASE_CELL_WIDTH))
+    gap = max(6, round(6 * cell_width / geo.BASE_CELL_WIDTH))
+
     image = Image.new("RGB", (width, height), "#f7f7f7")
     draw = ImageDraw.Draw(image)
 
-    for index in range(frames):
-        left = index * cell_width
-        right = left + cell_width - 1
-        draw.rectangle((left, 0, right, height - 1), outline="#111111", width=2)
-
-        safe_left = left + LAYOUT_GUIDE_SAFE_MARGIN_X
-        safe_top = LAYOUT_GUIDE_SAFE_MARGIN_Y
-        safe_right = right - LAYOUT_GUIDE_SAFE_MARGIN_X
-        safe_bottom = height - 1 - LAYOUT_GUIDE_SAFE_MARGIN_Y
-        draw.rectangle(
-            (safe_left, safe_top, safe_right, safe_bottom),
-            outline="#2f80ed",
-            width=2,
-        )
-
-        center_x = left + cell_width // 2
-        center_y = height // 2
-        draw_dashed_line(
-            draw,
-            (center_x, safe_top),
-            (center_x, safe_bottom),
-            fill="#b8b8b8",
-        )
-        draw_dashed_line(
-            draw,
-            (safe_left, center_y),
-            (safe_right, center_y),
-            fill="#b8b8b8",
-        )
+    slot_index = 0
+    for row in range(rows):
+        for column in range(columns):
+            left = column * cell_width
+            top = row * cell_height
+            right = left + cell_width - 1
+            bottom = top + cell_height - 1
+            used = slot_index < frames
+            draw.rectangle(
+                (left, top, right, bottom),
+                outline="#111111" if used else "#9a9a9a",
+                width=2,
+            )
+            if used:
+                safe_left = left + safe_margin_x
+                safe_top = top + safe_margin_y
+                safe_right = right - safe_margin_x
+                safe_bottom = bottom - safe_margin_y
+                draw.rectangle(
+                    (safe_left, safe_top, safe_right, safe_bottom),
+                    outline="#2f80ed",
+                    width=2,
+                )
+                center_x = left + cell_width // 2
+                center_y = top + cell_height // 2
+                draw_dashed_line(
+                    draw,
+                    (center_x, safe_top),
+                    (center_x, safe_bottom),
+                    fill="#b8b8b8",
+                    dash=dash,
+                    gap=gap,
+                )
+                draw_dashed_line(
+                    draw,
+                    (safe_left, center_y),
+                    (safe_right, center_y),
+                    fill="#b8b8b8",
+                    dash=dash,
+                    gap=gap,
+                )
+            slot_index += 1
 
     path.parent.mkdir(parents=True, exist_ok=True)
     image.save(path)
@@ -359,18 +422,27 @@ def create_layout_guide(path: Path, state: str, frames: int) -> dict[str, object
         "width": width,
         "height": height,
         "frames": frames,
-        "cell_width": ATLAS["cell_width"],
-        "cell_height": ATLAS["cell_height"],
-        "safe_margin_x": LAYOUT_GUIDE_SAFE_MARGIN_X,
-        "safe_margin_y": LAYOUT_GUIDE_SAFE_MARGIN_Y,
+        "grid_columns": columns,
+        "grid_rows": rows,
+        "cell_width": cell_width,
+        "cell_height": cell_height,
+        "atlas_cell_width": atlas_cell_width,
+        "atlas_cell_height": atlas_cell_height,
+        "safe_margin_x": safe_margin_x,
+        "safe_margin_y": safe_margin_y,
+        "unused_slots": columns * rows - frames,
         "usage": "layout guide input only; do not copy visible guide lines into generated sprite strips",
     }
 
 
-def create_layout_guides(run_dir: Path) -> list[dict[str, object]]:
+def create_layout_guides(
+    run_dir: Path, scale: int, generation_size: tuple[int, int]
+) -> list[dict[str, object]]:
     guide_dir = run_dir / LAYOUT_GUIDE_DIR
     return [
-        create_layout_guide(guide_dir / f"{state}.png", state, frames)
+        create_layout_guide(
+            guide_dir / f"{state}.png", state, frames, scale, generation_size
+        )
         for state, _row, frames, _purpose in ROWS
     ]
 
@@ -474,20 +546,13 @@ def compact(value: str) -> str:
 
 
 def brand_inspiration_line(args: argparse.Namespace) -> str:
-    brand_name = compact(args.brand_name)
+    # Names stay in pet_request.json metadata; prompts get visual cues only.
     brand_brief = compact(args.brand_brief)
-    if not brand_name and not brand_brief:
+    if not brand_brief:
         return ""
-
-    prefix = f"{brand_name}: " if brand_name else ""
-    if brand_brief:
-        return (
-            f"{prefix}{brand_brief} Use only broad mascot-safe cues; do not copy "
-            "readable logos, marks, UI screenshots, or text."
-        )
     return (
-        f"{prefix}Use only broad mascot-safe brand cues. Do not copy readable "
-        "logos, marks, UI screenshots, or text."
+        f"Visual cues only: {brand_brief} Use only broad mascot-safe cues; do not "
+        "copy readable logos, marks, UI screenshots, or text."
     )
 
 
@@ -498,7 +563,7 @@ def base_pet_prompt(args: argparse.Namespace) -> str:
     brand_block = f"\nBrand inspiration: {brand_line}\n" if brand_line else "\n"
     chroma_key = args.chroma_key["hex"]
     chroma_name = args.chroma_key["name"]
-    return f"""Create one clean full-body reference sprite for Codex pet {args.display_name}.
+    return f"""Create one clean full-body reference sprite for this Codex pet.
 
 Pet identity: {pet_notes}.
 Style: {style_contract}
@@ -506,32 +571,83 @@ Style: {style_contract}
 Place a single centered pose on a perfectly flat pure {chroma_name} {chroma_key} chroma-key background. Keep the full pet visible, compact, readable at 192x208, and easy to animate. Preserve approved reference identity cues. No scenery, text, borders, checkerboard transparency, shadows, glows, detached effects, or extra props. Keep {chroma_key} and close colors out of the pet, props, highlights, and effects."""
 
 
-def row_stability_lock(frames: int, chroma_name: str, chroma_key: str) -> str:
+def row_stability_lock(
+    frames: int,
+    chroma_name: str,
+    chroma_key: str,
+    columns: int,
+    rows: int,
+) -> str:
     # The generation endpoint reliably produces three defects that no amount of
     # state wording suppresses, so every row prompt names them explicitly.
+    unused = columns * rows - frames
+    unused_line = (
+        f"\n- Leave the {unused} unused slot(s) flat {chroma_name} {chroma_key}; "
+        "do not place a figure or effect there."
+        if unused
+        else ""
+    )
     return f"""Row stability lock — these override any other instruction:
 - ABSOLUTE SIZE LOCK: all {frames} figures are the same drawing repeated at the same size — same head size, same torso length, same leg length, same overall height and width, same top-of-head height, same baseline. Only limbs, pose, and expression change between frames. Never draw one figure smaller, shorter, wider, or taller than its neighbours.
-- Leave a wide, clearly visible band of untouched flat {chroma_name} {chroma_key} between neighbouring figures, and keep every figure clear of the top, bottom, and side edges. No hair, ear, horn, tail, sleeve, limb, or prop may touch, cross, or approach the next figure.
+- Leave a wide, clearly visible band of untouched flat {chroma_name} {chroma_key} between neighbouring figures, both horizontally and vertically, and keep every figure clear of the outer edges. No hair, ear, horn, tail, sleeve, limb, or prop may touch, cross, or approach the next figure.
+- Keep every grid row fully separated by {chroma_name} {chroma_key}; never let a figure straddle two rows.{unused_line}
 - Draw nothing on the {chroma_name} background except the {frames} complete figures: no question marks, exclamation marks, punctuation, ellipses, hearts, stars, sparkles, dots, sweat drops, motion arcs, speed lines, glow, shadow, halo, dust, smoke, icons, symbols, or logo-like marks. Express everything through pose and expression only."""
 
 
-def row_prompt(args: argparse.Namespace, state: str, row: int, frames: int, purpose: str) -> str:
+def row_reading_order(frames: int, columns: int, rows: int, chroma_name: str, chroma_key: str) -> str:
+    if rows == 1:
+        return (
+            f"Output exactly {frames} full-body frames in one left-to-right row on flat pure "
+            f"{chroma_name} {chroma_key}. Treat the row as {frames} invisible equal-width slots: "
+            "one centered complete pose per slot, evenly spaced, with no overlap, clipping, "
+            "unintended empty slots, labels, or borders."
+        )
+    unused = columns * rows - frames
+    order = (
+        f"Output exactly {frames} full-body frames in ONE image, arranged as {columns} columns x "
+        f"{rows} rows on flat pure {chroma_name} {chroma_key}. Reading order is row-major: the "
+        f"top row is frames 1-{columns} from left to right; the bottom row is frames "
+        f"{columns + 1}-{frames} from left to right."
+    )
+    if unused:
+        order += (
+            f" The remaining {unused} slot(s) stay empty flat {chroma_name} {chroma_key}."
+        )
+    order += (
+        f" Treat the canvas as {columns} columns x {rows} rows of invisible equal-size slots: "
+        "one centered complete pose per slot, evenly spaced, with no overlap, clipping, "
+        "unintended empty slots, labels, or borders."
+    )
+    return order
+
+
+def row_prompt(
+    args: argparse.Namespace,
+    state: str,
+    frames: int,
+    columns: int,
+    rows: int,
+    generation_size: tuple[int, int],
+) -> str:
     pet_notes = args.pet_notes or "the same pet from the approved base reference"
     style_contract = resolved_style_contract(args.style_preset, args.style_notes)
     chroma_key = args.chroma_key["hex"]
     chroma_name = args.chroma_key["name"]
     state_prompt = STATE_PROMPTS[state]
     state_requirements = "\n".join(f"- {line}" for line in STATE_REQUIREMENTS[state])
-    stability_lock = row_stability_lock(frames, chroma_name, chroma_key)
-    return f"""Create one horizontal animation strip for Codex pet `{args.pet_id}`, state `{state}`.
+    stability_lock = row_stability_lock(
+        frames, chroma_name, chroma_key, columns, rows
+    )
+    grid = f"{columns}x{rows}" if rows > 1 else f"{frames}x1"
+    return f"""Create one animation grid for this Codex pet, state `{state}`.
 
 Use the attached canonical base for identity. Use the attached layout guide only for slot count, spacing, centering, and padding; do not draw the guide.
 
-Output exactly {frames} full-body frames in one left-to-right row on flat pure {chroma_name} {chroma_key}. Treat the row as {frames} invisible equal-width slots: one centered complete pose per slot, evenly spaced, with no overlap, clipping, empty slots, labels, or borders.
+{row_reading_order(frames, columns, rows, chroma_name, chroma_key)}
 
 Identity: same pet in every frame: {pet_notes}. Preserve silhouette, face, proportions, markings, palette, material, style, and props.
 Style: {style_contract}
-Animation continuity: keep apparent pet scale and baseline stable within the row unless the state itself intentionally changes vertical position, such as `jumping`. Move the pose within the slot instead of redrawing the pet larger or smaller frame to frame.
+Animation continuity: keep apparent pet scale and baseline stable across all {frames} frames. Move the pose within the slot instead of redrawing the pet larger or smaller frame to frame.
 
 State action: {state_prompt}
 
@@ -540,23 +656,33 @@ State requirements:
 
 {stability_lock}
 
-Clean extraction: crisp opaque edges, safe padding, no scenery, text, guide marks, checkerboard, shadows, glows, motion blur, speed lines, dust, detached effects, stray pixels, or chroma-key colors inside the pet."""
+Clean extraction: crisp opaque edges, safe padding, no scenery, text, guide marks, checkerboard, shadows, glows, motion blur, speed lines, dust, detached effects, stray pixels, or chroma-key colors inside the pet.
+
+Output requirements: render this {frames}-frame {grid} grid at {generation_size[0]}x{generation_size[1]} — crisp linework, sharp facial details, fine individual hair strands, clean edges, no blur, no compression artifacts, no soft or muddy areas. Keep the same layout and identity."""
 
 
 def retry_row_prompt(
-    args: argparse.Namespace, state: str, row: int, frames: int, purpose: str
+    args: argparse.Namespace,
+    state: str,
+    frames: int,
+    columns: int,
+    rows: int,
+    generation_size: tuple[int, int],
 ) -> str:
     pet_notes = args.pet_notes or "the canonical base pet"
     chroma_key = args.chroma_key["hex"]
     chroma_name = args.chroma_key["name"]
     state_prompt = STATE_PROMPTS[state]
     state_requirements = "\n".join(f"- {line}" for line in STATE_REQUIREMENTS[state])
-    stability_lock = row_stability_lock(frames, chroma_name, chroma_key)
-    return f"""Create Codex pet row `{state}` for `{args.pet_id}`: exactly {frames} full-body frames in one horizontal strip on flat pure {chroma_name} {chroma_key}.
+    stability_lock = row_stability_lock(
+        frames, chroma_name, chroma_key, columns, rows
+    )
+    grid = f"{columns}x{rows}" if rows > 1 else f"{frames}x1"
+    return f"""Create Codex pet row `{state}`: exactly {frames} full-body frames in a {grid} grid on flat pure {chroma_name} {chroma_key} at {generation_size[0]}x{generation_size[1]}.
 
 Use the attached canonical base for identity and the layout guide only for spacing. Same pet in every frame: {pet_notes}. Preserve silhouette, face, palette, material, proportions, markings, and props.
 
-Keep apparent pet scale and baseline stable within the row unless the state itself intentionally changes vertical position, such as `jumping`.
+Keep apparent pet scale and baseline stable across all frames.
 
 Action: {state_prompt}
 
@@ -565,13 +691,17 @@ State requirements:
 
 {stability_lock}
 
-One centered complete pose per invisible slot. No text, boxes, guide marks, scenery, shadows, glows, motion blur, speed lines, dust, detached effects, stray pixels, or {chroma_key} colors in the pet."""
+{row_reading_order(frames, columns, rows, chroma_name, chroma_key)}
+
+No text, boxes, guide marks, scenery, shadows, glows, motion blur, speed lines, dust, detached effects, stray pixels, or {chroma_key} colors in the pet."""
 
 
 
 def make_jobs(
     run_dir: Path,
     copied_refs: list[dict[str, object]],
+    scale: int,
+    generation_size: tuple[int, int],
 ) -> list[dict[str, object]]:
     reference_inputs = [
         {"path": rel(Path(str(ref["copied_path"])), run_dir), "role": "pet reference"}
@@ -593,6 +723,8 @@ def make_jobs(
         }
     ]
     for state, _row, frames, _purpose in ROWS:
+        columns, grid_rows = geo.grid_for_frames(frames)
+        cell_width, cell_height = geo.cell_size(scale)
         depends_on = ["base"]
         extra_inputs: list[dict[str, str]] = []
         derivation_policy: dict[str, object] = {
@@ -625,12 +757,15 @@ def make_jobs(
                 "retry_prompt_file": f"prompts/row-retries/{state}.md",
                 "input_images": [
                     {
-                        "path": f"{LAYOUT_GUIDE_DIR}/{state}.png",
-                        "role": f"layout guide for {frames} frame slots; use for spacing only, do not copy guide lines",
-                    },
-                    {
                         "path": CANONICAL_BASE_PATH,
                         "role": "canonical identity reference",
+                    },
+                    {
+                        "path": f"{LAYOUT_GUIDE_DIR}/{state}.png",
+                        "role": (
+                            f"layout guide for {columns} columns x {grid_rows} rows "
+                            f"({frames} frames); use for spacing only, do not copy guide lines"
+                        ),
                     },
                     *extra_inputs,
                 ],
@@ -639,6 +774,11 @@ def make_jobs(
                 "generation_skill": "generation-layer",
                 "requires_grounded_generation": True,
                 "allow_prompt_only_generation": False,
+                "grid_columns": columns,
+                "grid_rows": grid_rows,
+                "cell_width": cell_width,
+                "cell_height": cell_height,
+                "generation_size": list(generation_size),
                 "identity_reference_paths": identity_reference_paths,
                 "parallelizable_after": depends_on,
                 "derivation_policy": derivation_policy,
@@ -673,7 +813,7 @@ def main() -> None:
     parser.add_argument(
         "--brand-name",
         default="",
-        help="Brand, company, or product name used for broad mascot inspiration.",
+        help="Brand, company, or product name. Metadata label only; never written into a prompt.",
     )
     parser.add_argument(
         "--brand-brief",
@@ -703,8 +843,32 @@ def main() -> None:
         default="auto",
         help="Chroma key as #RRGGBB, or auto to choose a safe key from reference colors.",
     )
+    parser.add_argument(
+        "--cell-scale",
+        type=int,
+        default=geo.DEFAULT_CELL_SCALE,
+        help=(
+            f"Atlas cell scale N: cell = 192N x 208N. Default and maximum "
+            f"{geo.MAX_CELL_SCALE}; larger scales exhaust memory in the despill pass."
+        ),
+    )
+    parser.add_argument(
+        "--generation-size",
+        default=f"{geo.DEFAULT_GENERATION_SIZE[0]}x{geo.DEFAULT_GENERATION_SIZE[1]}",
+        help="Generation canvas WIDTHxHEIGHT (official maximum 3840x2160).",
+    )
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
+
+    if args.cell_scale < 1:
+        raise SystemExit("--cell-scale must be greater than or equal to 1")
+    if args.cell_scale > geo.MAX_CELL_SCALE:
+        raise SystemExit(
+            f"--cell-scale must be at most {geo.MAX_CELL_SCALE}; "
+            "larger atlases exhaust memory in the despill pass"
+        )
+    generation_size = parse_generation_size(args.generation_size)
+    atlas = atlas_spec(args.cell_scale)
 
     raw_reference_paths = [Path(raw_path).expanduser().resolve() for raw_path in args.reference]
     raw_brand_discovery_path = (
@@ -772,16 +936,25 @@ def main() -> None:
         brand_discovery_path = rel(copied_discovery, run_dir)
 
     args.chroma_key = choose_chroma_key(copied_ref_paths, args.chroma_key)
-    layout_guides = create_layout_guides(run_dir)
+    layout_guides = create_layout_guides(run_dir, args.cell_scale, generation_size)
 
     request = {
         "pet_id": args.pet_id,
         "display_name": args.display_name,
         "description": args.description,
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "atlas": ATLAS,
+        "atlas": atlas,
+        "cell_scale": args.cell_scale,
+        "generation_size": list(generation_size),
         "rows": [
-            {"state": state, "row": row, "frames": frames, "purpose": purpose}
+            {
+                "state": state,
+                "row": row,
+                "frames": frames,
+                "purpose": purpose,
+                "grid_columns": geo.grid_for_frames(frames)[0],
+                "grid_rows": geo.grid_for_frames(frames)[1],
+            }
             for state, row, frames, purpose in ROWS
         ],
         "layout_guides": [
@@ -806,21 +979,22 @@ def main() -> None:
     )
 
     write_text(prompt_dir / "base-pet.md", base_pet_prompt(args))
-    for state, row, frames, purpose in ROWS:
+    for state, _row, frames, _purpose in ROWS:
+        columns, grid_rows = geo.grid_for_frames(frames)
         write_text(
             row_prompt_dir / f"{state}.md",
-            row_prompt(args, state, row, frames, purpose),
+            row_prompt(args, state, frames, columns, grid_rows, generation_size),
         )
         write_text(
             row_retry_prompt_dir / f"{state}.md",
-            retry_row_prompt(args, state, row, frames, purpose),
+            retry_row_prompt(args, state, frames, columns, grid_rows, generation_size),
         )
     jobs = {
         "schema_version": 1,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "run_dir": str(run_dir),
         "primary_generation_skill": "generation-layer",
-        "jobs": make_jobs(run_dir, copied_refs),
+        "jobs": make_jobs(run_dir, copied_refs, args.cell_scale, generation_size),
     }
     (run_dir / "imagegen-jobs.json").write_text(json.dumps(jobs, indent=2) + "\n", encoding="utf-8")
 

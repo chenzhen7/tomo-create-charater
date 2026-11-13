@@ -10,6 +10,8 @@ from pathlib import Path
 
 from PIL import Image, ImageOps
 
+import pet_geometry as geo
+
 RUNNING_FRAME_COUNT = 8
 
 
@@ -53,16 +55,32 @@ def manifest_relative(path: Path, run_dir: Path) -> str:
 def mirror_strip_preserving_frame_order(
     source: Image.Image,
     frame_count: int = RUNNING_FRAME_COUNT,
+    grid_columns: int = RUNNING_FRAME_COUNT,
+    grid_rows: int = 1,
 ) -> Image.Image:
     rgba = source.convert("RGBA")
     mirrored = Image.new("RGBA", rgba.size, (0, 0, 0, 0))
-    slot_width = rgba.width / frame_count
-    for index in range(frame_count):
-        left = round(index * slot_width)
-        right = round((index + 1) * slot_width)
+    if grid_rows <= 1:
+        slot_width = rgba.width / frame_count
+        for index in range(frame_count):
+            left = round(index * slot_width)
+            right = round((index + 1) * slot_width)
+            mirrored.alpha_composite(
+                ImageOps.mirror(rgba.crop((left, 0, right, rgba.height))),
+                (left, 0),
+            )
+        return mirrored
+
+    slot_width = rgba.width / grid_columns
+    slot_height = rgba.height / grid_rows
+    for column, row in geo.slot_positions(frame_count, grid_columns, grid_rows):
+        left = round(column * slot_width)
+        right = round((column + 1) * slot_width)
+        top = round(row * slot_height)
+        bottom = round((row + 1) * slot_height)
         mirrored.alpha_composite(
-            ImageOps.mirror(rgba.crop((left, 0, right, rgba.height))),
-            (left, 0),
+            ImageOps.mirror(rgba.crop((left, top, right, bottom))),
+            (left, top),
         )
     return mirrored
 
@@ -110,9 +128,17 @@ def main() -> None:
     if output.exists() and not args.force:
         raise SystemExit(f"{output} already exists; pass --force to replace it")
 
+    request = geo.read_request(run_dir)
+    grid_columns, grid_rows = geo.request_row_grid(request, "running-right") or (
+        RUNNING_FRAME_COUNT,
+        1,
+    )
+
     output.parent.mkdir(parents=True, exist_ok=True)
     with Image.open(source) as image:
-        mirrored = mirror_strip_preserving_frame_order(image)
+        mirrored = mirror_strip_preserving_frame_order(
+            image, RUNNING_FRAME_COUNT, grid_columns, grid_rows
+        )
         mirrored.save(output)
 
     left_job["status"] = "complete"
@@ -143,6 +169,8 @@ def main() -> None:
                 "output": str(output),
                 "decision_note": args.decision_note.strip(),
                 "transform": "framewise-horizontal-mirror-preserving-order",
+                "grid_columns": grid_columns,
+                "grid_rows": grid_rows,
             },
             indent=2,
         )

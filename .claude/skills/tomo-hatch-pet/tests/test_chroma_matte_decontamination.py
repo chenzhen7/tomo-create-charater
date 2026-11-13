@@ -1,11 +1,15 @@
 import importlib.util
+import sys
 import unittest
 from pathlib import Path
 
 from PIL import Image
 
 SKILL_DIR = Path(__file__).resolve().parents[1]
-MODULE_PATH = SKILL_DIR / "scripts" / "despill_chroma_edges.py"
+SCRIPTS_DIR = SKILL_DIR / "scripts"
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
+MODULE_PATH = SCRIPTS_DIR / "despill_chroma_edges.py"
 SPEC = importlib.util.spec_from_file_location("despill_chroma_edges", MODULE_PATH)
 if SPEC is None or SPEC.loader is None:
     raise RuntimeError(f"Unable to load {MODULE_PATH}")
@@ -179,7 +183,9 @@ class ChromaMatteDecontaminationTest(unittest.TestCase):
         self.assertEqual(cleaned.getpixel((1, 3)), (30, 60, 90, 80))
 
     def test_does_not_borrow_interior_color_across_atlas_cells(self) -> None:
-        image = Image.new("RGBA", (384, 208), (0, 0, 0, 0))
+        # Must be a full 8x9 atlas so despill derives 192x208 cells; the two
+        # pixels sit either side of the first cell boundary.
+        image = Image.new("RGBA", (1536, 1872), (0, 0, 0, 0))
         image.putpixel((191, 100), (220, 40, 180, 128))
         image.putpixel((192, 100), (20, 80, 220, 255))
 
