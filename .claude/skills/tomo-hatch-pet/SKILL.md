@@ -139,7 +139,7 @@ CHROMA_KEY=<hex from pet_request.json>
 
 3. Generate with lightweight workers, at most three active, backfilling as slots free:
 
-- base first;
+- base first, then stop: show the base image to the user and wait for explicit confirmation of the look before generating any row;
 - then `idle` and `running-right` as the identity and gait check;
 - inspect `running-right`, then mirror `running-left` only when identity, props, markings, lighting, and direction stay correct — otherwise generate it as a normal row;
 - then the remaining rows.
