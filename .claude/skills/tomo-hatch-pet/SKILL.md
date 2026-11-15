@@ -84,7 +84,7 @@ Up to 10 visual jobs: 1 base plus 9 rows (`idle`, `running-right`, `running-left
 
 ### Look Rules
 
-- Default style preset: `delicate-realistic` — delicate tapered linework, natural about-5.5-head proportions, light painterly impasto, soft pastel shading. Other accepted presets: `auto`, `pixel`, `plush`, `clay`, `sticker`, `flat-vector`, `3d-toy`, `painterly`, `brand-inspired`. Whatever the preset, keep a readable whole-body silhouette and consistent face, proportions, palette, and materials across rows.
+- Default style preset: `delicate-realistic` — delicate tapered linework, natural 4–5-head proportions, light painterly impasto, soft pastel shading. Other accepted presets: `auto`, `pixel`, `plush`, `clay`, `sticker`, `flat-vector`, `3d-toy`, `painterly`, `brand-inspired`. Whatever the preset, keep a readable whole-body silhouette and consistent face, proportions, palette, and materials across rows.
 - Every generated pixel must be sprite or cleanly removable chroma key. Reject accidental 100%-transparent holes inside a filled body; the atlas validator will not catch those.
 - Effects are allowed only when state-relevant, attached to the sprite, inside its slot, opaque, and non-key-colored. Reject detached marks, shadows, glows, motion trails, and symbol-like artifacts.
 - State and effects rules live in each generated row prompt; do not override or re-specify them.

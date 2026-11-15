@@ -179,7 +179,7 @@ node .claude/skills/make-character/tts.js characters/<角色名>
 
 #### ⑥a 取得（三选一）
 
-- **以该角色为原型定制**（首选——桌宠得是它本人）：跑 `tomo-hatch-pet` skill，产物直接落到 `characters/<角色名>/`：`pet.json` + `spritesheet.webp`。默认 style preset 为 `delicate-realistic`（细腻线条、自然约 5.5 头身、轻厚涂）；要 chibi 或其它风格时显式传 `--style-preset <name>`
+- **以该角色为原型定制**（首选——桌宠得是它本人）：跑 `tomo-hatch-pet` skill，产物直接落到 `characters/<角色名>/`：`pet.json` + `spritesheet.webp`。默认 style preset 为 `delicate-realistic`（细腻线条、自然 4~5 头身、轻厚涂）；要 chibi 或其它风格时显式传 `--style-preset <name>`
 - **从 PetDex 画廊挑一只**（代价最低，但拿到的是通用宠物而非角色本人）：`npx petdex install <slug>`，两文件在 `~/.petdex/pets/<slug>/`
 - **自带图集**：手工美术，或别处下载的宠物包（zip 或已解开的目录都行）
 

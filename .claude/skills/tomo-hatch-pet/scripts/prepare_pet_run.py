@@ -137,7 +137,7 @@ PET_SAFE_STYLE = (
 
 DELICATE_REALISTIC_STYLE = (
     "delicate refined linework with thin tapered strokes; natural anime "
-    "proportions, about 5.5 heads tall, not chibi; painterly thick-paint "
+    "proportions, about 4 to 5 heads tall, not chibi; painterly thick-paint "
     "rendering with layered opaque brushwork, soft shading, gentle rim light, "
     "and detailed hair strands; muted pastel palette; no thick black outlines, "
     "no flat cel shading, no glossy 3D toy look. Clean readable silhouette."
