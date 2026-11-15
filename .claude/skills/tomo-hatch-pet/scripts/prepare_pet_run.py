@@ -600,6 +600,8 @@ def row_stability_lock(
     )
     return f"""Row stability lock — these override any other instruction:
 - ABSOLUTE SIZE LOCK: all {frames} figures are the same drawing repeated at the same size — same head size, same torso length, same leg length, same overall height and width, same top-of-head height, same baseline. Only limbs, pose, and expression change between frames. Never draw one figure smaller, shorter, wider, or taller than its neighbours.
+- CROSS-ROW SCALE LOCK: the two grid rows are one continuous animation at the identical drawing scale. Never draw the bottom row larger or smaller than the top row; compare head size, shoulder width, and ground baseline against frame 1.
+- MOTION CONTINUITY LOCK: adjacent frames differ only slightly and read as one smooth loop;
 - Leave a wide, clearly visible band of untouched flat {chroma_name} {chroma_key} between neighbouring figures, both horizontally and vertically, and keep every figure clear of the outer edges. No hair, ear, horn, tail, sleeve, limb, or prop may touch, cross, or approach the next figure.
 - Keep every grid row fully separated by {chroma_name} {chroma_key}; never let a figure straddle two rows.{unused_line}
 - Draw nothing on the {chroma_name} background except the {frames} complete figures: no question marks, exclamation marks, punctuation, ellipses, hearts, stars, sparkles, dots, sweat drops, motion arcs, speed lines, glow, shadow, halo, dust, smoke, icons, symbols, or logo-like marks. Express everything through pose and expression only."""
