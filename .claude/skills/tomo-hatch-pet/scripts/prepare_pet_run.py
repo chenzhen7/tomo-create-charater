@@ -135,7 +135,16 @@ PET_SAFE_STYLE = (
     "for chroma-key extraction."
 )
 
+DELICATE_REALISTIC_STYLE = (
+    "delicate refined linework with thin tapered strokes; natural anime "
+    "proportions, about 5.5 heads tall, not chibi; painterly thick-paint "
+    "rendering with layered opaque brushwork, soft shading, gentle rim light, "
+    "and detailed hair strands; muted pastel palette; no thick black outlines, "
+    "no flat cel shading, no glossy 3D toy look. Clean readable silhouette."
+)
+
 STYLE_PRESETS = {
+    "delicate-realistic": DELICATE_REALISTIC_STYLE,
     "auto": (
         "Infer the most appropriate pet-safe style from the user request and "
         "reference images, then keep that exact style consistent across every row."
@@ -835,7 +844,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--style-preset",
-        default="auto",
+        default="delicate-realistic",
         choices=sorted(STYLE_PRESETS),
         help="Pet-safe style preset to use across the base and all animation rows.",
     )
